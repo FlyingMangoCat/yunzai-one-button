@@ -7,7 +7,7 @@ yunzai-Bot安卓一键部署
 支持版本：
 
 
-插件包(只自带这三个基本装云崽都会用到的，如需其他插件可以去[插件库]()自行安装)
+插件包(只自带这三个基本装云崽都会用到的，如需其他插件可以去[插件库](https://gitee.com/Hikari666/Yunzai-Bot-plugins-index)自行安装)
 - [喵喵插件](https://gitee.com/yoimiya-kokomi/miao-plugin)：查询游戏内角色面板
 - [图鉴插件](https://gitee.com/Ctrlcvs/xiaoyao-cvs-plugin)：提供角色、武器、原魔、食物等图鉴内容
 
