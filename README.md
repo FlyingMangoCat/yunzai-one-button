@@ -10,9 +10,9 @@ yunzai-Bot安卓一键部署
 |  | ✓ | ✓ |  |
 
 #### 自带插件包(这三个基本装云崽都会用到，如需其他插件可以去[插件库](https://gitee.com/Hikari666/Yunzai-Bot-plugins-index)自行安装)
-[喵喵插件](https://gitee.com/yoimiya-kokomi/miao-plugin)：查询游戏内角色面板
-[图鉴插件](https://gitee.com/Ctrlcvs/xiaoyao-cvs-plugin)：提供角色、武器、原魔、食物等图鉴内容
-[榴莲插件](https://gitee.com/huifeidemangguomao/liulian-plugin)：提供须弥地下地图，插件管理，一些群聊功能等
+- [喵喵插件](https://gitee.com/yoimiya-kokomi/miao-plugin)：查询游戏内角色面板
+- [图鉴插件](https://gitee.com/Ctrlcvs/xiaoyao-cvs-plugin)：提供角色、武器、原魔、食物等图鉴内容
+- [榴莲插件](https://gitee.com/huifeidemangguomao/liulian-plugin)：提供须弥地下地图，插件管理，一些群聊功能等
 
 #### 部署工具
 
