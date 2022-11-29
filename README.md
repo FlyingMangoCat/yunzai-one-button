@@ -22,28 +22,9 @@ yunzai-Bot安卓一键部署
 
 #### 开始安装
 
-在Termux中依次输入
-```
-pkg install proot git python -y
-```
-```
-git clone https://gitee.com/Le-niao/termux-install-linux.git
-cd termux-install-linux 
-python termux-linux-install.py
-```
-输入1，选择安装ubuntu；
-```
-cd ~/Termux-Linux/Ubuntu
-./start-ubuntu.sh
-```
-```
-apt update
-```
-```
-apt install curl -y
-```
+### 如果是直接看的本仓库，请移步[b站](https://b23.tv/3RU04tY)进行操作
 
-安装云崽以及插件包
+### 如果是按照b站操作完的执行以下指令
 
 ```
 curl -sL https://gitee.com/fw-cn/Yunzai/raw/master/Yunzai-Bot-pkg.sh | bash
@@ -54,4 +35,4 @@ node app
 ```
 #### 其他
 
-[芒果猫(榴莲插件)问题反馈专栏]()
+[芒果猫(榴莲插件)问题反馈专栏](https://b23.tv/k4k0PDt)
