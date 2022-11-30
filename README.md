@@ -22,16 +22,10 @@ yunzai-Bot安卓一键部署
 
 #### 开始安装
 
-##### 如果是直接看的本仓库，请移步[b站](https://b23.tv/3RU04tY)进行操作
-
-##### 如果是按照b站操作完的执行以下指令
+请移步[b站](https://b23.tv/3RU04tY)查看步骤
 
 ```
 curl -sL https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh | bash
-```
-```
-cd Yunzai-Bot
-node app
 ```
 #### 其他
 
