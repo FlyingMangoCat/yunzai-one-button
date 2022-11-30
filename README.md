@@ -1,5 +1,7 @@
 # 云崽一键安装
 
+[![访问量](https://profile-counter.glitch.me/yunzai-one-button/count.svg)](https://gitee.com/huifeidemangguomaocoder/yunzai-one-button)
+
 #### 说明
 
 yunzai-Bot安卓一键部署
