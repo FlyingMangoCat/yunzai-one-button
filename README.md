@@ -27,7 +27,7 @@ yunzai-Bot安卓一键部署
 ##### 如果是按照b站操作完的执行以下指令
 
 ```
-curl -sL https://gitee.com/fw-cn/Yunzai/raw/master/Yunzai-Bot-pkg.sh | bash
+curl -sL https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh | bash
 ```
 ```
 cd Yunzai-Bot
