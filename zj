@@ -1,7 +1,0 @@
-echo -e '开始安装，请稍后……'
-
-apt update
-apt install curl -y
-curl -sL https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh | bash
-
-echo -e '安装完毕'
