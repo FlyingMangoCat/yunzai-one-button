@@ -20,11 +20,9 @@ echo -e "\033[43;31m请输入阿拉伯数字1\033[0m"
 cd termux-install-linux
 python termux-linux-install.py
 echo -e 'Ubuntu安装完毕'
-echo -e "\033[43;32m接下来依次输入以下命令进行安装(建议提前复制好，省的待会再回来翻\033[0m"
+echo -e "\033[43;32m接下来依次输入以下命令进行安装(建议提前复制好，省的待会再回来翻)\033[0m"
 echo -e "\033[32mapt update\033[0m"
 echo -e "\033[32mapt install curl -y\033[0m"
-echo -e "\033[32m接下来输入
-curl -sL https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh | bash
-继续安装\033[0m"
+echo -e "\033[32mcurl -sL https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh | bash\033[0m"
 cd ~/Termux-Linux/Ubuntu
 ./start-ubuntu.sh
