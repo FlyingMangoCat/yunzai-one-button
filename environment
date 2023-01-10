@@ -28,4 +28,4 @@ cd ~/Termux-Linux/Ubuntu
 ./start-ubuntu.sh
 ubuntu="apt install update"
 ubuntu="apt install curl -y"
-curl -sL https://gtee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh | bash
+ubuntu="curl -sL https://gtee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh | bash"
