@@ -31,9 +31,9 @@ cd ~/
 echo '正在克隆云崽……'
 git clone https://gitee.com/Le-niao/Yunzai-Bot.git
 cd Yunzai-Bot
+npm update
 npm install pnpm -g
-npm install -g cnpm --registry=https://registry.npmmirror.com
-cnpm install
+npm install cnpm -g
 echo '克隆完毕'
 
 echo '正在准备安装插件，如不想用某个插件，请在全部安装结束后自行删除'
@@ -65,4 +65,3 @@ echo -e "\033[43;31mnode app\033[0m"
 echo '现在输入cd ~/Yunzai-Bot && node app启动bot进行账号及主人配置'
 echo '完毕，收工'
 echo '答疑群:658720198'
-echo '该一键部署如有问题不可以反馈，反馈我也不管'
