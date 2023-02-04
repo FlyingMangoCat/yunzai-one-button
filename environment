@@ -7,7 +7,7 @@ echo -e '正在加载，请稍后……'
 termux-setup-storage
 termux-wake-lock
 
-echo -e '正在安装获取模拟权限，请稍后……'
+echo -e '正在获取模拟权限，请稍后……'
 
 pkg install proot git python screenfetch -y 
 
