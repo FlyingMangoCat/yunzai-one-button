@@ -50,7 +50,6 @@ git clone https://gitee.com/huifeidemangguomao/liulian-plugin.git ./plugins/liul
 echo '正在安装部分依赖'
 pnpm install -P
 pnpm add image-size -w
-pnpm add axios -w
 
 echo '插件安装完毕，启动后请按要求安装依赖'
 echo '如果想删除插件，请进行以下操作'
