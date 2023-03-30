@@ -29,7 +29,7 @@ apt install git -y
 
 cd ~/
 echo '正在克隆云崽……'
-git clone https://gitee.com/yoimiya-kokomi/Yunzai-Bot.git
+git clone --depth=1 -b main https://gitee.com/yoimiya-kokomi/Yunzai-Bot.git
 cd Yunzai-Bot
 npm update
 npm install pnpm -g
