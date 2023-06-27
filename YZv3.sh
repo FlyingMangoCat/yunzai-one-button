@@ -19,7 +19,6 @@ echo '正在安装chromuim，中文字体等，请稍后……'
 apt install chromium-browser -y
 apt install -y --force-yes --no-install-recommends fonts-wqy-microhei
 apt install git -y
-apt install ffmpeg
 
 function MangoCat-Yunzai {
 echo '正在克隆云崽……'
