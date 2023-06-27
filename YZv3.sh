@@ -4,13 +4,6 @@ echo '正在更新apt，请稍后……'
 apt update
 apt upgrade -y
 
-echo '正在安装git python3.8 pip，请稍后……'
-apt install git python3.8 python3-pip -y
-ln -sf python3.8 /usr/bin/python
-ln -sf /usr/bin/pip3 /usr/bin/pip
-python -m pip install --upgrade pip
-echo '安装完成'
-
 echo '正在安装nodejs，请稍后……'
 curl -sL https://deb.nodesource.com/setup_17.x | bash -
 apt-get install -y nodejs
