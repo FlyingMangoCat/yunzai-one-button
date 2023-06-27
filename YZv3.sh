@@ -54,7 +54,7 @@ else
 fi
 }
 
-function pnpm install -P {
+function rely on {
 echo '正在安装依赖……'
 pnpm install -P
 }
@@ -85,7 +85,7 @@ read -p "请输入您要执行的操作数字：" choice
 case $choice in
   1) MangoCat-Yunzai ;;
   2) Miao-Yunzai ;;
-  3) pnpm install -P ;;
+  3) rely on ;;
   4) start ;;
   *) echo "~" ;;
 esac
