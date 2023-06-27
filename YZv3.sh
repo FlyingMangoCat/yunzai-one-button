@@ -54,7 +54,7 @@ else
 fi
 }
 
-function install -P {
+function install-P {
 echo '正在安装依赖……'
 pnpm install -P
 }
@@ -121,7 +121,7 @@ case $choice in
   1) MangoCat-Yunzai ;;
   2) Miao-Yunzai ;;
   3) continue ;;
-  4) install -P ;;
+  4) install-P ;;
   5) start ;;
   *) echo "请输入正确选项" ;;
 esac
