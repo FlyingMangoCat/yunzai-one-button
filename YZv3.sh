@@ -61,6 +61,10 @@ fi
 
 function install-P {
 echo '正在安装依赖……'
+cd $HOME/MangoCat-Yunzai/
+cd ~/MangoCat-Yunzai
+cd $HOME/Yunzai-Bot/
+cd ~/Yunzai-Bot
 pnpm install -P
 }
 
