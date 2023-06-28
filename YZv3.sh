@@ -3,7 +3,7 @@
 function container {
 bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/environment)
 }
-function then {
+function continue {
 echo '正在更新apt，请稍后……'
 apt update
 apt upgrade -y
@@ -74,7 +74,7 @@ cd ~/MangoCat-Yunzai && node app
 cd $HOME/Yunzai-Bot/
 cd ~/Yunzai-Bot && node app
 }
-function continue {
+function plugins {
 cd $HOME/Yunzai-Bot/
 npm install pnpm -g
 npm install -g cnpm --registry=https://registry.npmmirror.com
@@ -126,10 +126,10 @@ read -p "请输入要执行操作选项：" choice
 # 根据用户输入的选项执行相应的函数
 case $choice in
   1) container ;;
-  2) then;;
+  2) continue ;;
   3) MangoCat-Yunzai ;;
   4) Miao-Yunzai ;;
-  5) continue ;;
+  5) plugins ;;
   6) install-P ;;
   7) start ;;
   *) echo "请输入正确选项" ;;
