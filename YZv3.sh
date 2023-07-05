@@ -83,12 +83,23 @@ cd ~/Yunzai-Bot && node app
 }
 function plugins {
 cd $HOME/Yunzai-Bot/
-cd $HOME/MangoCat-Yunzai/
+if [ ! -d "$HOME/Yunzai-Bot" ]; 
+then 
+    cd $HOME/MangoCat-Yunzai/
+    if [ ! -d "$HOME/Yunzai-Bot/" ];
+  then
+        echo "未检测到喵版云崽"
+        exit  
+    else 
+        echo "正在准备安装插件……"
+    fi
+else 
+    echo "正在安装插件……"
+fi
+
 npm install pnpm -g
 npm install -g cnpm --registry=https://registry.npmmirror.com
 cnpm install
-
-echo '正在准备安装插件……'
 
 echo '正在安装喵喵插件，支持查询游戏内角色面板'
 git clone https://gitee.com/yoimiya-kokomi/miao-plugin.git ./plugins/miao-plugin/
