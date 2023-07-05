@@ -30,7 +30,7 @@ apt install git -y
 }
 
 function MangoCat-Yunzai {
-echo '正在克隆云崽……'
+echo '正在克隆芒果猫版云崽……'
 if [ ! -d "$HOME/MangoCat-Yunzai" ]; 
 then 
     git clone https://gitee.com/huifeidemangguomao/MangoCat-Yunzai.git
@@ -44,7 +44,7 @@ then
 else 
     echo "克隆完毕"
 fi
-
+cd $HOME/MangoCat-Yunzai
 npm install pnpm -g
 npm install -g cnpm --registry=https://registry.npmmirror.com
 cnpm install
@@ -74,7 +74,7 @@ echo '答疑群:658720198'
 }
 
 function Miao-Yunzai {
-echo '正在克隆云崽……'
+echo '正在克隆喵版云崽……'
 if [ ! -d "$HOME/Yunzai-Bot" ]; 
 then 
     git clone --depth=1 -b main https://gitee.com/yoimiya-kokomi/Yunzai-Bot.git
@@ -88,7 +88,7 @@ then
 else 
     echo "克隆完毕"
 fi
-
+cd $HOME/Yunzai-Bot
 npm install pnpm -g
 npm install -g cnpm --registry=https://registry.npmmirror.com
 cnpm install
