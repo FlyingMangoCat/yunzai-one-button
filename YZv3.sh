@@ -43,6 +43,33 @@ then
 else 
     echo "克隆完毕"
 fi
+
+npm install pnpm -g
+npm install -g cnpm --registry=https://registry.npmmirror.com
+cnpm install
+
+echo '正在安装喵喵插件，支持查询游戏内角色面板'
+git clone https://gitee.com/yoimiya-kokomi/miao-plugin.git ./plugins/miao-plugin/
+
+echo '正在安装c佬图鉴插件，提供原魔、食物、武器、角色等图鉴帮助'
+git clone https://gitee.com/Ctrlcvs/xiaoyao-cvs-plugin.git ./plugins/xiaoyao-cvs-plugin/
+
+echo '正在安装榴莲插件，提供原神地下地图、插件管理、以及部分群聊功能'
+git clone https://gitee.com/huifeidemangguomao/liulian-plugin.git ./plugins/liulian-plugin/
+
+echo '正在安装部分依赖'
+pnpm install -P
+
+echo '插件安装完毕，启动后请按要求安装依赖'
+echo -e "\033[32m退出后台重进后输入以下代码(建议复制！！！):\033[0m"
+echo -e "\033[43;31mcd ~/Termux-Linux/Ubuntu\033[0m"
+echo -e "\033[43;31m./start-ubuntu.sh\033[0m"
+echo -e "\033[43;31mredis-server --daemonize yes --save 900 1 --save 300 10\033[0m"
+echo -e "\033[43;31mcd Yunzai-Bot\033[0m"
+echo -e "\033[43;31mnode app\033[0m"
+echo '现在输入cd ~/Yunzai-Bot && node app启动bot进行账号及主人配置'
+echo '完毕，收工'
+echo '答疑群:658720198'
 }
 
 function Miao-Yunzai {
@@ -59,42 +86,6 @@ then
     fi
 else 
     echo "克隆完毕"
-fi
-}
-
-function install-P {
-echo '正在安装依赖……'
-cd $HOME/MangoCat-Yunzai/
-cd ~/MangoCat-Yunzai
-cd $HOME/Yunzai-Bot/
-cd ~/Yunzai-Bot
-pnpm install -P
-}
-
-function start {
-echo '正在启动云崽……'
-cd ~/Termux-Linux/Ubuntu
-./start-ubuntu.sh
-redis-server --save 900 1 --save 300 10 --daemonize yes
-cd $HOME/MangoCat-Yunzai/
-cd ~/MangoCat-Yunzai && node app
-cd $HOME/Yunzai-Bot/
-cd ~/Yunzai-Bot && node app
-}
-function plugins {
-cd $HOME/Yunzai-Bot/
-if [ ! -d "$HOME/Yunzai-Bot" ]; 
-then 
-    cd $HOME/MangoCat-Yunzai/
-    if [ ! -d "$HOME/Yunzai-Bot/" ];
-  then
-        echo "未检测到喵版云崽"
-        exit  
-    else 
-        echo "正在准备安装插件……"
-    fi
-else 
-    echo "正在安装插件……"
 fi
 
 npm install pnpm -g
@@ -125,15 +116,34 @@ echo '完毕，收工'
 echo '答疑群:658720198'
 }
 
+function install-P {
+echo '正在安装依赖……'
+cd $HOME/MangoCat-Yunzai/
+cd ~/MangoCat-Yunzai
+cd $HOME/Yunzai-Bot/
+cd ~/Yunzai-Bot
+pnpm install -P
+}
+
+function start {
+echo '正在启动云崽……'
+cd ~/Termux-Linux/Ubuntu
+./start-ubuntu.sh
+redis-server --save 900 1 --save 300 10 --daemonize yes
+cd $HOME/MangoCat-Yunzai/
+cd ~/MangoCat-Yunzai && node app
+cd $HOME/Yunzai-Bot/
+cd ~/Yunzai-Bot && node app
+}
+
 echo "-----------------------菜单-------------------"
 echo "              请选择要执行的操作："
 echo "              1. 安装容器"
 echo "              2. 继续(请在安装完容器后选择)"
 echo "              3. 安装芒果猫版云崽"
 echo "              4. 安装喵版云崽"
-echo "              5. 安装插件(请在安装云崽本体后选择)"
-echo "              6. 安装依赖"
-echo "              7. 启动云崽"
+echo "              5. 安装依赖"
+echo "              6. 启动云崽"
 echo "----------------by 会飞的芒果猫-----------------"
 
 # 读取用户输入
@@ -144,9 +154,8 @@ case $choice in
   1) container ;;
   2) continue ;;
   3) MangoCat-Yunzai ;;
-  4) Miao-Yunzai ;;
-  5) plugins ;;
-  6) install-P ;;
-  7) start ;;
+  4) Miao-Yunzai ;; 
+  5) install-P ;;
+  6) start ;;
   *) echo "请输入正确选项" ;;
 esac
