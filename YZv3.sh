@@ -30,7 +30,7 @@ apt install git -y
 
 function MangoCat-Yunzai {
 echo '正在克隆云崽……'
-if [ ! -d "$HOME/Yunzai-Bot" ]; 
+if [ ! -d "$HOME/MangoCat-Yunzai" ]; 
 then 
     git clone https://gitee.com/huifeidemangguomao/MangoCat-Yunzai.git
     if [ ! -d "$HOME/MangoCat-Yunzai/" ];
@@ -83,6 +83,7 @@ cd ~/Yunzai-Bot && node app
 }
 function plugins {
 cd $HOME/Yunzai-Bot/
+cd $HOME/MangoCat-Yunzai/
 npm install pnpm -g
 npm install -g cnpm --registry=https://registry.npmmirror.com
 cnpm install
@@ -102,9 +103,6 @@ echo '正在安装部分依赖'
 pnpm install -P
 
 echo '插件安装完毕，启动后请按要求安装依赖'
-echo '如果想删除插件，请进行以下操作'
-echo 'cd ~/Yunzai-Bot/plugins'
-echo '输入rm -rf 插件名称'
 echo -e "\033[32m退出后台重进后输入以下代码(建议复制！！！):\033[0m"
 echo -e "\033[43;31mcd ~/Termux-Linux/Ubuntu\033[0m"
 echo -e "\033[43;31m./start-ubuntu.sh\033[0m"
