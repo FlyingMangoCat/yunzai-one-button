@@ -4,8 +4,6 @@ function container {
 
 bash <(curl -sL https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/environment)
 
-then
-
 apt install update
 
 apt install curl -y
