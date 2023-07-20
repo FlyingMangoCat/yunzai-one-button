@@ -4,7 +4,7 @@ function container {
 
 bash <(curl -sL https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/environment)
 
-clean
+exit
 
 apt install update
 
