@@ -1,7 +1,9 @@
 #!/bin/bash
 
 function container {
-bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/environment) && apt install update && apt install curl -y
+bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/environment) &
+apt install update
+apt install curl -y
 echo '安装完毕'
 }
 function continue {
@@ -157,3 +159,4 @@ case $choice in
   6) start ;;
   *) echo "请输入正确选项" ;;
 esac
+/bin/bash
