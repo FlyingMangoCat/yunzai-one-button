@@ -5,6 +5,7 @@ bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master
 apt install update
 apt install curl -y
 echo '安装完毕'
+bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh)
 }
 function continue {
 echo '正在更新apt，请稍后……'
@@ -26,6 +27,7 @@ echo '正在安装chromuim，中文字体等，请稍后……'
 apt install chromium-browser -y
 apt install -y --force-yes --no-install-recommends fonts-wqy-microhei
 apt install git -y
+bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh)
 }
 
 function MangoCat-Yunzai {
@@ -70,6 +72,7 @@ echo -e "\033[43;31mnode app\033[0m"
 echo '现在输入cd ~/Yunzai-Bot && node app启动bot进行账号及主人配置'
 echo '完毕，收工'
 echo '答疑群:658720198'
+bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh)
 }
 
 function Miao-Yunzai {
@@ -114,6 +117,7 @@ echo -e "\033[43;31mnode app\033[0m"
 echo '现在输入cd ~/Yunzai-Bot && node app启动bot进行账号及主人配置'
 echo '完毕，收工'
 echo '答疑群:658720198'
+bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh)
 }
 
 function install-P {
@@ -123,6 +127,7 @@ cd ~/MangoCat-Yunzai
 cd $HOME/Yunzai-Bot/
 cd ~/Yunzai-Bot
 pnpm install -P
+bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh)
 }
 
 function start {
