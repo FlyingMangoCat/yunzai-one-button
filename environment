@@ -25,8 +25,4 @@ echo -e "\033[32mapt update\033[0m"
 echo -e "\033[32mapt install curl -y\033[0m"
 echo -e "\033[32mcurl -sL https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh | bash\033[0m"
 cd ~/Termux-Linux/Ubuntu
-./start-ubuntu.sh
-then
-apt update
-apt install curl -y
-curl -sL https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh | bash
+./start-ubuntu.sh && apt update && apt install curl -y
