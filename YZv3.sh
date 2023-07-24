@@ -1,11 +1,8 @@
 #!/bin/bash
 
 function container {
-bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/environment)
-clean
-apt install update
-apt install curl -y
-echo 'a'
+bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/environment) && apt install update && apt install curl -y
+echo '安装完毕'
 }
 function continue {
 echo '正在更新apt，请稍后……'
