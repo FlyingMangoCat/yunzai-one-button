@@ -26,3 +26,4 @@ echo -e "\033[32mapt install curl -y\033[0m"
 echo -e "\033[32mbash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh)\033[0m"
 cd ~/Termux-Linux/Ubuntu
 ./start-ubuntu.sh
+#/bin/bash
