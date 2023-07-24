@@ -159,4 +159,3 @@ case $choice in
   6) start ;;
   *) echo "请输入正确选项" ;;
 esac
-/bin/bash
