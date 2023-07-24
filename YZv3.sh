@@ -8,8 +8,6 @@ echo '安装完毕'
 bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh)
 }
 function continue {
-cd ~/Termux-Linux/Ubuntu
-./start-ubuntu.sh
 echo '正在更新apt，请稍后……'
 apt update
 apt upgrade -y
