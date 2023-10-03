@@ -158,7 +158,7 @@ show_menu
 read -p "请输入要执行操作选项：" CHOICE
 
 # 根据用户输入的选项执行相应的函数
-case $CHOICE in
+case "$CHOICE" in
   1) container ;;
   2) continue ;;
   3) MangoCat-Yunzai ;;
@@ -168,4 +168,3 @@ case $CHOICE in
   *) echo "请输入正确选项" ;;
 esac
 done
-fi
