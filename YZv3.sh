@@ -168,3 +168,4 @@ case $CHOICE in
   *) echo "请输入正确选项" ;;
 esac
 done
+fi
