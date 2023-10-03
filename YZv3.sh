@@ -153,8 +153,8 @@ echo "              6. 启动云崽"
 echo "----------------by 会飞的芒果猫-----------------"
 
 }
-    while true; do
-            show_menu
+while true; do
+show_menu
 read -p "请输入要执行操作选项：" CHOICE
 
 # 根据用户输入的选项执行相应的函数
@@ -167,3 +167,4 @@ case $CHOICE in
   6) start ;;
   *) echo "请输入正确选项" ;;
 esac
+done
