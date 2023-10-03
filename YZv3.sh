@@ -141,6 +141,7 @@ cd $HOME/Yunzai-Bot/
 cd ~/Yunzai-Bot && node app
 }
 
+function show_menu {
 echo "-----------------------菜单-------------------"
 echo "              请选择要执行的操作："
 echo "              1. 安装容器"
@@ -151,7 +152,9 @@ echo "              5. 安装依赖"
 echo "              6. 启动云崽"
 echo "----------------by 会飞的芒果猫-----------------"
 
-# 读取用户输入
+}
+    while true; do
+            show_menu
 read -p "请输入要执行操作选项：" CHOICE
 
 # 根据用户输入的选项执行相应的函数
