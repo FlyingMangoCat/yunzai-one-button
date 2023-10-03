@@ -152,10 +152,10 @@ echo "              6. 启动云崽"
 echo "----------------by 会飞的芒果猫-----------------"
 
 # 读取用户输入
-read -p "请输入要执行操作选项：" choice
+read -p "请输入要执行操作选项：" CHOICE
 
 # 根据用户输入的选项执行相应的函数
-case $choice in
+case $CHOICE in
   1) container ;;
   2) continue ;;
   3) MangoCat-Yunzai ;;
