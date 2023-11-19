@@ -27,6 +27,10 @@ echo '正在安装chromuim，中文字体等，请稍后……'
 apt install chromium-browser -y
 apt install -y --force-yes --no-install-recommends fonts-wqy-microhei
 apt install git -y
+curl -o ffmpeg https://cdn.npmmirror.com/binaries/ffmpeg-static/b6.0/ffmpeg-linux-${structure}
+curl -o ffprobe https://cdn.npmmirror.com/binaries/ffmpeg-static/b6.0/ffprobe-linux-${structure}
+mv -f ffmpeg /usr/local/bin/ffmpeg
+mv -f ffprobe /usr/local/bin/ffpro
 bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh)
 }
 
@@ -141,7 +145,6 @@ cd $HOME/Yunzai-Bot/
 cd ~/Yunzai-Bot && node app
 }
 
-function show_menu {
 echo "-----------------------菜单-------------------"
 echo "              请选择要执行的操作："
 echo "              1. 安装容器"
@@ -152,13 +155,11 @@ echo "              5. 安装依赖"
 echo "              6. 启动云崽"
 echo "----------------by 会飞的芒果猫-----------------"
 
-}
-while true; do
-show_menu
-read -p "请输入要执行操作选项：" CHOICE
+# 读取用户输入
+read -p "请输入要执行操作选项：" choice
 
 # 根据用户输入的选项执行相应的函数
-case "$CHOICE" in
+case $choice in
   1) container ;;
   2) continue ;;
   3) MangoCat-Yunzai ;;
@@ -167,4 +168,3 @@ case "$CHOICE" in
   6) start ;;
   *) echo "请输入正确选项" ;;
 esac
-done
