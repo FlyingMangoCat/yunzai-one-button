@@ -13,7 +13,7 @@ apt update
 apt upgrade -y
 
 echo '正在安装nodejs，请稍后……'
-curl -sL https://deb.nodesource.com/setup_17.x | bash -
+curl -sL https://deb.nodesource.com/setup_18.x | bash -
 apt-get install -y nodejs
 echo '安装完成'
 
