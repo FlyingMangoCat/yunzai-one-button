@@ -60,7 +60,7 @@ git clone https://gitee.com/yoimiya-kokomi/miao-plugin.git ./plugins/miao-plugin
 echo '正在安装c佬图鉴插件，提供原魔、食物、武器、角色等图鉴帮助'
 git clone https://gitee.com/Ctrlcvs/xiaoyao-cvs-plugin.git ./plugins/xiaoyao-cvs-plugin/
 
-echo '正在安装榴莲插件，提供原神地下地图、插件管理、以及部分群聊功能'
+echo '正在安装榴莲插件，提供原神猜角色、插件管理、以及部分群聊功能'
 git clone https://gitee.com/huifeidemangguomao/liulian-plugin.git ./plugins/liulian-plugin/
 
 echo '正在安装部分依赖'
@@ -148,12 +148,12 @@ cd ~/Miao-Yunzai && node app
 echo "-----------------------菜单-------------------"
 echo "              请选择要执行的操作："
 echo "              1. 安装容器"
-echo "              2. 配置环境(请在安装完容器后选择)"
+echo "              2. 配置环境"
 echo "              3. 安装芒果猫版云崽"
 echo "              4. 安装喵崽"
 echo "              5. 安装依赖"
 echo "              6. 启动云崽"
-echo "\033[32m注意！初次安装请按照以下顺序：1，2，3/4，5，6:\033[0m"
+echo -e "\033[32m注意！初次安装请按照以下顺序：1，2，3/4，5，6:\033[0m"
 echo "----------------by 会飞的芒果猫-----------------"
 
 # 读取用户输入
@@ -167,5 +167,5 @@ case $choice in
   4) Miao-Yunzai ;; 
   5) install-P ;;
   6) start ;;
-  *) echo "请输入正确选项" ;;
+  *) echo "请输入正确选项"bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh) ;;
 esac
