@@ -13,7 +13,7 @@ apt update
 apt upgrade -y
 
 echo '正在安装nodejs，请稍后……'
-curl -sL https://deb.nodesource.com/setup_18.x | bash -
+curl -sL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs
 echo '安装完成'
 
@@ -179,7 +179,7 @@ case $choice in
   8) echo "请使用您会使用的电子通讯产品安装并打开腾讯QQ登录，
   点击搜索栏输入3598537042，
   输入完成后请点击搜索，添加用户“会飞的芒果猫”并耐心等待，
-  通过好友后，请您说出您的问题并附对应截图（您所遇到问题界面的截图），并耐心等待即可，
+  通过好友后，请您说出您的问题并附对应截图（您所遇到问题界面的截图），并耐心等待即可
   等待有回复后，请您一定按照要求进行操作
   谢谢配合" container ;;
   *) echo "请输入正确选项" ;;
