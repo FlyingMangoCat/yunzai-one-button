@@ -13,7 +13,7 @@ pkg install proot git python screenfetch -y
 
 echo -e '正在安装Ubuntu，请稍后……'
 
-git clone https://gitee.com/Le-niao/termux-install-linux.git 
+git clone https://gitee.com/huifeidemangguomao/termux-install-linux.git 
 
 echo -e "\033[43;31m请输入阿拉伯数字1\033[0m"
 
