@@ -18,7 +18,7 @@ yunzai-Bot安卓一键部署
 
 #### 部署工具
 
-必备[Termux](https://f-droid.org/repo/com.termux_118.apk)
+必备[Termux](https://github.com/termux/termux-app/releases/download/v0.118.0/termux-app_v0.118.0+github-debug_arm64-v8a.apk)
 
 推荐[滑动验证助手](https://maupdate.rainchan.win/txcaptcha.apk) 
 
