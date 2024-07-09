@@ -19,12 +19,12 @@ git clone --depth=1 -b ubuntu22.04 https://gitee.com/KudouShinnyan/ubuntu-in-ter
 cd ubuntu-in-termux
 chmod +x ubuntu.sh
 ./ubuntu.sh -y
-./startubuntu.sh
-sed -i 's/ports.ubuntu.com/mirrors.bfsu.edu.cn/g' /etc/apt/sources.list
 
 echo -e 'Ubuntu安装完毕'
 echo -e "\033[43;32m接下来依次输入以下命令进行安装(建议提前复制好，省的待会再回来翻)\033[0m"
-echo -e "\033[32mapt update && apt install curl -y\033[0m"
-echo -e "\033[32mbash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh)\033[0m"
-cd ~/ubuntu-in-termux
+echo -e "\033[32sed -i 's/ports.ubuntu.com/mirrors.bfsu.edu.cn/g' /etc/apt/sources.listmapt update && apt install curl -y\033[0m"
+echo -e "\033[32mapt update && apt upgrade -y && apt install curl -y\033[0m"
+echo -e "\033[32mbash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh) ```
+\033[0m"
+
 ./startubuntu.sh
