@@ -6,6 +6,8 @@ echo -e '正在加载，请稍后……'
 
 termux-setup-storage
 termux-wake-lock
+apt update && apt upgrade -y
+apt install git proot -y
 
 echo -e '正在获取模拟权限，请稍后……'
 
@@ -13,15 +15,16 @@ pkg install proot git python screenfetch -y
 
 echo -e '正在安装Ubuntu，请稍后……'
 
-git clone https://gitee.com/huifeidemangguomao/termux-install-linux.git 
+git clone --depth=1 -b ubuntu22.04 https://gitee.com/KudouShinnyan/ubuntu-in-termux.git
+cd ubuntu-in-termux
+chmod +x ubuntu.sh
+./ubuntu.sh -y
+./startubuntu.sh
+sed -i 's/ports.ubuntu.com/mirrors.bfsu.edu.cn/g' /etc/apt/sources.list
 
-echo -e "\033[43;31m请输入阿拉伯数字1\033[0m"
-
-cd termux-install-linux
-python termux-linux-install.py
 echo -e 'Ubuntu安装完毕'
 echo -e "\033[43;32m接下来依次输入以下命令进行安装(建议提前复制好，省的待会再回来翻)\033[0m"
 echo -e "\033[32mapt update && apt install curl -y\033[0m"
 echo -e "\033[32mbash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh)\033[0m"
-cd ~/Termux-Linux/Ubuntu
-./start-ubuntu.sh
+cd ~/ubuntu-in-termux
+./startubuntu.sh
