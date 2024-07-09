@@ -112,8 +112,8 @@ pnpm install -P
 
 echo '插件安装完毕，启动后请按要求安装依赖'
 echo -e "\033[32m退出后台重进后输入以下代码(建议复制！！！):\033[0m"
-echo -e "\033[43;31mcd ~/Termux-Linux/Ubuntu\033[0m"
-echo -e "\033[43;31m./start-ubuntu.sh\033[0m"
+echo -e "\033[43;31mcd ubuntu-in-termux\033[0m"
+echo -e "\033[43;31m./startubuntu.sh\033[0m"
 echo -e "\033[43;31mredis-server --daemonize yes --save 900 1 --save 300 10\033[0m"
 echo -e "\033[43;31mcd Miao-Yunzai\033[0m"
 echo -e "\033[43;31mnode app\033[0m"
@@ -135,8 +135,8 @@ bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master
 
 function start {
 echo '正在启动云崽……'
-cd ~/Termux-Linux/Ubuntu
-./start-ubuntu.sh
+cd ubuntu-in-termux
+./startubuntu.sh
 redis-server --save 900 1 --save 300 10 --daemonize yes
 cd $HOME/MangoCat-Yunzai/
 cd ~/MangoCat-Yunzai && node app
