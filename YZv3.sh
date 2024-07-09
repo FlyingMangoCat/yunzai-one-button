@@ -27,10 +27,9 @@ echo '正在安装chromuim，中文字体等，请稍后……'
 apt install chromium-browser -y
 apt install -y --force-yes --no-install-recommends fonts-wqy-microhei
 apt install git -y
-curl -o ffmpeg https://cdn.npmmirror.com/binaries/ffmpeg-static/b6.0/ffmpeg-linux-${structure}
-curl -o ffprobe https://cdn.npmmirror.com/binaries/ffmpeg-static/b6.0/ffprobe-linux-${structure}
-mv -f ffmpeg /usr/local/bin/ffmpeg
-mv -f ffprobe /usr/local/bin/ffpro
+bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/ffmpeg)
+bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/Pytnon3.10)
+echo '环境配置完毕'
 bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh)
 }
 
