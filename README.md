@@ -31,3 +31,7 @@ bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master
 #### 其他
 
 [芒果猫(留恋插件)问题反馈专栏](https://b23.tv/k4k0PDt)
+
+##### 特别鸣谢
+
+**感谢Y佬的大力支持**
