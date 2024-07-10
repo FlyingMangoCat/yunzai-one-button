@@ -27,7 +27,8 @@ yunzai-Bot安卓一键部署
 请移步[【原神Q群机器人安卓手机部署帮助】](https://b23.tv/pg84aQ0)查看步骤
 
 ```
-bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh) ```
+bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh) 
+```
 #### 其他
 
 [芒果猫(留恋插件)问题反馈专栏](https://b23.tv/k4k0PDt)
