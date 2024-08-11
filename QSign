@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# 定义配置变量
+json_file="package.json"
+config_paths=("config/config/bot.yaml" "config/config/qq.yaml")
+sign_api_addr="https://hlhs-nb.cn/signed/?key=114514"
+target_dir="/root/QSignServer"
+
+# 函数定义
+update_config() { local config_file=$1
+    local key=$2
+        local value=$3
+            if grep -q "^$key:" "$config_file"; then
+                    sed -i "s|^$key:.*|$key: \"$value\"|" "$config_file" else
+                            echo "$key: $value" >> "$config_file"
+                                fi
+                                }
+
+                                remove_dir() {
+                                        if [ -d "$1" ]; then
+                                                echo "Deleting directory $1" rm -rfv "$1"
+                                                    fi
+                                }
+
+                                # 主逻辑
+                                current_time=$(date +"%Y-%m-%d %H:%M:%S")
+                                echo "$current_time"
+                                echo -e "\e[1;36mProcessing...\e[0m"
+                                
+                                if [ ! -f "$json_file" ]; then echo "JSON file does not exist: $json_file"
+                                    exit 1
+                                    fi
+                                    
+                                    names=$(grep -oP '"name":\s*"\K[^"]+' "$json_file")
+                                    
+                                    case "$names" in
+                                        "miao-yunzai")
+                                                if [ ! -f "${config_paths[0]}" ]; then
+                                                            echo "Config file does not exist: ${config_paths[0]}" exit 1 fi
+                                                                    remove_dir "$target_dir"
+                                                                            update_config "${config_paths[0]}" "sign_api_addr" "$sign_api_addr"
+                                                                                    sed -i "/^ver:/d" "${config_paths[0]}" update_config "${config_paths[1]}" "platform" "2" ;;
+                                                                                        "mangocat-yunzai")
+                                                                                                # 类似处理逻辑
+                                                                                                        ;;
+                                                                                                            "trss-yunzai") # 类似处理逻辑 ;; *) echo "Unable to determine the current project"
+                                                                                                                    echo "Please manually modify"
+                                                                                                                            exit 1
+                                                                                                                                    ;;
+                                                                                                                                    esac
+                                                                                                                                    
+                                                                                                                                    # 安全性改进：避免直接执行远程脚本
+                                                                                                                                    # curl -sSLk https://gitee.com/huifeidemangguomao/yunzai-one-button/blob/master/QSign | bash
+                                                                                                                                    
+                                                                                                                                    exit]]
+                                }
