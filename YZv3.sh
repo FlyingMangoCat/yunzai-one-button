@@ -196,34 +196,53 @@ install_yunzai() {
     show_start_instructions
 }
 
-# 启动云崽
+    # 启动云崽
 start_yunzai() {
-    log "启动云崽服务..."
-    
-    # 启动容器环境
-    if [ ! -d "$UBUNTU_DIR" ]; then
-        error "容器未安装，请先安装容器"
-    fi
-    
-    # 进入容器
-    cd "$UBUNTU_DIR"
-    ./startubuntu.sh
-    groupadd -g 3003 group3003
-    groupadd -g 9997 group9997
-    groupadd -g 20323 group20323
-    groupadd -g 50323 group50323
-    groupadd -g 99909997 group99909997
-    redis-server --daemonize yes --save 900 1 --save 300 10
-    
-    # 根据安装的版本启动云崽
-    if [ -d "/root/MangoCat-Yunzai" ] && [ "$INSTALLED_YUNZAI" = "芒果猫版云崽" ]; then
-        cd /root/MangoCat-Yunzai
-        node app
-    elif [ -d "/root/Miao-Yunzai" ] && [ "$INSTALLED_YUNZAI" = "喵版云崽" ]; then
-        cd /root/Miao-Yunzai
-        node app
+    # 检测是否在容器内
+    if [ -f /etc/os-release ] && grep -q 'Ubuntu' /etc/os-release; then
+        # 在容器内直接启动
+        log "检测到当前已在Ubuntu容器内，直接启动云崽服务..."
+        
+        # 启动Redis
+        echo -e "${GREEN}正在启动Redis服务...${NC}"
+        redis-server --daemonize yes --save 900 1 --save 300 10
+        
+        # 根据安装的版本启动云崽
+        if [ -d "/root/MangoCat-Yunzai" ] && [ "$INSTALLED_YUNZAI" = "芒果猫版云崽" ]; then
+            echo -e "${GREEN}正在启动芒果猫版云崽...${NC}"
+            cd /root/MangoCat-Yunzai
+            node app
+        elif [ -d "/root/Miao-Yunzai" ] && [ "$INSTALLED_YUNZAI" = "喵版云崽" ]; then
+            echo -e "${GREEN}正在启动喵版云崽...${NC}"
+            cd /root/Miao-Yunzai
+            node app
+        else
+            warn "未找到云崽安装目录，请先安装云崽"
+        fi
     else
-        warn "未找到云崽安装目录，请先安装云崽"
+        # 不在容器内，进入容器
+        log "当前不在容器内，准备进入容器环境..."
+        
+        if [ ! -d "$UBUNTU_DIR" ]; then
+            error "容器未安装，请先安装容器"
+        fi
+        
+        if [ ! -f "$UBUNTU_DIR/startubuntu.sh" ]; then
+            error "找不到启动脚本: $UBUNTU_DIR/startubuntu.sh"
+        fi
+        
+        # 进入容器
+        echo -e "${GREEN}正在进入Ubuntu容器...${NC}"
+        echo -e "${YELLOW}进入容器后，请重新运行本脚本选择选项6启动云崽${NC}"
+        sleep 2
+        
+        cd "$UBUNTU_DIR"
+        ./startubuntu.sh
+        groupadd -g 3003 group3003
+        groupadd -g 9997 group9997
+        groupadd -g 20323 group20323
+        groupadd -g 50323 group50323
+        groupadd -g 99909997 group99909997
     fi
 }
 
