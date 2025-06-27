@@ -209,6 +209,11 @@ start_yunzai() {
     echo -e "${GREEN}正在启动容器环境...${NC}"
     cd "$UBUNTU_DIR"
     ./startubuntu.sh
+    groupadd -g 3003 group3003
+    groupadd -g 9997 group9997
+    groupadd -g 20323 group20323
+    groupadd -g 50323 group50323
+    groupadd -g 99909997 group99909997
     
     # 启动Redis
     echo -e "${GREEN}正在启动Redis服务...${NC}"
