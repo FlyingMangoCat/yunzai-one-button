@@ -127,7 +127,8 @@ install_container_env() {
     # 安装Node.js
     log "安装Node.js..."
     curl -sL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y nodejs
+    apt-get install nodejs -y
+    apt-get install nsolid -y
     success "Node.js安装完成"
     
     # 安装Redis
@@ -179,10 +180,10 @@ install_yunzai() {
     # 安装插件
     log "安装插件..."
     if [ ! -d "plugins/miao-plugin" ]; then
-        git clone https://github.com/yoimiya-kokomi/miao-plugin.git ./plugins/miao-plugin/
+        git clone --depth=1 https://gitcode.com/yoimiya-kokomi/miao-plugin.git ./plugins/miao-plugin/
     fi
     if [ ! -d "plugins/xiaoyao-cvs-plugin" ]; then
-        git clone https://gitee.com/Ctrlcvs/xiaoyao-cvs-plugin.git ./plugins/xiaoyao-cvs-plugin/
+        git clone https://github.com/Ctrlcvs/xiaoyao-cvs-plugin.git ./plugins/xiaoyao-cvs-plugin/
     fi
     if [ ! -d "plugins/liulian-plugin" ]; then
         git clone https://gitee.com/huifeidemangguomao/liulian-plugin.git ./plugins/liulian-plugin/
