@@ -214,13 +214,18 @@ start_yunzai() {
     groupadd -g 20323 group20323
     groupadd -g 50323 group50323
     groupadd -g 99909997 group99909997
+    
+    # 启动Redis
+    echo -e "${GREEN}正在启动Redis服务...${NC}"
     redis-server --daemonize yes --save 900 1 --save 300 10
     
     # 根据安装的版本启动云崽
     if [ -d "/root/MangoCat-Yunzai" ] && [ "$INSTALLED_YUNZAI" = "芒果猫版云崽" ]; then
+        echo -e "${GREEN}正在启动芒果猫版云崽...${NC}"
         cd /root/MangoCat-Yunzai
         node app
     elif [ -d "/root/Miao-Yunzai" ] && [ "$INSTALLED_YUNZAI" = "喵版云崽" ]; then
+        echo -e "${GREEN}正在启动喵版云崽...${NC}"
         cd /root/Miao-Yunzai
         node app
     else
