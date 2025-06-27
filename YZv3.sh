@@ -121,6 +121,7 @@ install_container_env() {
     log "开始在容器内安装基础环境..."
     
     # 更新系统
+    dpkg --configure -a
     apt update && apt upgrade -y
     
     # 安装Node.js
@@ -139,7 +140,11 @@ install_container_env() {
     log "安装浏览器和字体..."
     apt install chromium-browser -y
     apt install -y --force-yes --no-install-recommends fonts-wqy-microhei
-    
+ 
+    # 安装git
+    log "安装git..."
+    apt install git -y
+
     success "基础环境配置完成"
 }
 
@@ -174,7 +179,7 @@ install_yunzai() {
     # 安装插件
     log "安装插件..."
     if [ ! -d "plugins/miao-plugin" ]; then
-        git clone https://gitee.com/yoimiya-kokomi/miao-plugin.git ./plugins/miao-plugin/
+        git clone https://github.com/yoimiya-kokomi/miao-plugin.git ./plugins/miao-plugin/
     fi
     if [ ! -d "plugins/xiaoyao-cvs-plugin" ]; then
         git clone https://gitee.com/Ctrlcvs/xiaoyao-cvs-plugin.git ./plugins/xiaoyao-cvs-plugin/
