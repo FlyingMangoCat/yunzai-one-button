@@ -199,11 +199,17 @@ install_yunzai() {
 # 启动云崽
 start_yunzai() {
     log "启动云崽服务..."
-    
-    # 启动容器环境
-    if [ ! -d "$UBUNTU_DIR" ]; then
-        error "容器未安装，请先安装容器"
+    local in_container=0
+    if [ -f /etc/os-release ] && grep -q 'Ubuntu' /etc/os-release; then
+        in_container=1
     fi
+
+    # 启动容器环境
+    if [ $in_container -eq 0 ]; then
+        if [ ! -d "$UBUNTU_DIR" ]; then
+            error "容器未安装，请先安装容器"
+        fi
+    else
     
     # 进入容器
     echo -e "${GREEN}正在启动容器环境...${NC}"
@@ -216,7 +222,6 @@ start_yunzai() {
     groupadd -g 99909997 group99909997
     
     # 启动Redis
-    echo -e "${GREEN}正在启动Redis服务...${NC}"
     redis-server --daemonize yes --save 900 1 --save 300 10
     
     # 根据安装的版本启动云崽
