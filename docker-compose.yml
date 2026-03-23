@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  yunzai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yunzai-bot
+    restart: unless-stopped
+    ports:
+      - "5700:5700"
+    volumes:
+      - ./yunzai-data:/app
+      - ./yunzai-config:/app/config
+    environment:
+      - TZ=Asia/Shanghai
+      - CHROME_BIN=/usr/bin/chromium-browser
+    depends_on:
+      - redis
+    networks:
+      - yunzai-network
+    stdin_open: true
+    tty: true
+
+  redis:
+    image: redis:7-alpine
+    container_name: yunzai-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis-data:/data
+    command: redis-server --save 900 1 --save 300 10 --appendonly yes
+    networks:
+      - yunzai-network
+
+networks:
+  yunzai-network:
+    driver: bridge
+
+volumes:
+  yunzai-data:
+  yunzai-config:
+  redis-data:
