@@ -1,21 +1,12 @@
 #!/bin/bash
 
-# 容器启动脚本
+# 容器启动脚本 - 保持容器运行
+# 所有安装和启动操作由宿主机脚本通过 docker exec 执行
 
-# 检查是否已安装云崽
-if [ ! -f "/app/package.json" ]; then
-    echo "首次启动，请先在宿主机上运行安装脚本安装云崽"
-    echo "运行: bash YZv3.sh"
-    echo "选择: 1. 安装芒果猫版云崽 或 2. 安装喵版云崽"
-    sleep 30
-    exit 1
-fi
+echo "============================================"
+echo "  云崽容器已启动，等待宿主机指令..."
+echo "  可通过 docker exec $CONTAINER_NAME ... 操作"
+echo "============================================"
 
-# 设置环境变量
-export CHROME_BIN=/usr/bin/chromium-browser
-export CHROME_PATH=/usr/bin/chromium-browser
-
-# 启动云崽
-echo "正在启动云崽..."
-cd /app
-node app
+# 保持容器运行
+tail -f /dev/null
