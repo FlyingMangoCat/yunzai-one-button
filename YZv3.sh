@@ -151,12 +151,36 @@ install_environment() {
             # Redis（验证安装，winget 优先）
             local redis_ok=false
             for i in 1 2 3; do
+                # 尝试连接已有 Redis
                 redis-cli ping 2>/dev/null && redis_ok=true && break
-                command -v redis-server &>/dev/null && redis-server --daemonize yes 2>/dev/null && sleep 2 && redis-cli ping 2>/dev/null && redis_ok=true && break
+                # 找到 redis-server 就启动
+                local redis_exe=""
+                for p in "/c/Program Files/Redis/redis-server.exe" "$PROGRAMFILES/Redis/redis-server.exe"; do
+                    [ -f "$p" ] && redis_exe="$p" && break
+                done
+                command -v redis-server &>/dev/null && redis_exe="redis-server"
+                if [ -n "$redis_exe" ]; then
+                    "$redis_exe" --daemonize yes 2>/dev/null || true
+                    sleep 2
+                    # 添加 PATH
+                    export PATH="$PATH:$(dirname "$redis_exe")"
+                    redis-cli ping 2>/dev/null && redis_ok=true && break
+                fi
                 log "安装 Redis (尝试 $i/3)..."
                 # winget 安装
                 if command -v winget &>/dev/null; then
-                    winget install -e --id Redis.Redis --accept-source-agreements 2>/dev/null && sleep 5 && redis-cli ping 2>/dev/null && redis_ok=true && break
+                    winget install -e --id Redis.Redis --accept-source-agreements 2>/dev/null || true
+                    sleep 5
+                    # 安装后查找 redis-server
+                    for p in "/c/Program Files/Redis/redis-server.exe" "$PROGRAMFILES/Redis/redis-server.exe"; do
+                        [ -f "$p" ] && redis_exe="$p" && break
+                    done
+                    if [ -n "$redis_exe" ]; then
+                        export PATH="$PATH:$(dirname "$redis_exe")"
+                        "$redis_exe" --daemonize yes 2>/dev/null || true
+                        sleep 2
+                        redis-cli ping 2>/dev/null && redis_ok=true && break
+                    fi
                 fi
                 # MSI 下载安装
                 local redis_urls=(
@@ -171,7 +195,15 @@ install_environment() {
                     powershell -Command "Start-Process msiexec -ArgumentList '/i $downloaded /quiet /norestart' -Wait -NoNewWindow" 2>/dev/null || true
                     rm -f "$downloaded"
                     sleep 5
-                    redis-cli ping 2>/dev/null && redis_ok=true && break
+                    for p in "/c/Program Files/Redis/redis-server.exe" "$PROGRAMFILES/Redis/redis-server.exe"; do
+                        [ -f "$p" ] && redis_exe="$p" && break
+                    done
+                    if [ -n "$redis_exe" ]; then
+                        export PATH="$PATH:$(dirname "$redis_exe")"
+                        "$redis_exe" --daemonize yes 2>/dev/null || true
+                        sleep 2
+                        redis-cli ping 2>/dev/null && redis_ok=true && break
+                    fi
                 fi
                 sleep 3
             done
