@@ -235,91 +235,88 @@ install_docker_macos() {
 install_docker_windows() {
     log "在 Windows 中安装 Docker..."
 
-    # 检测 docker 是否可用（可能不在 PATH 中）
-    local docker_exe=""
-    if command -v docker &> /dev/null; then
-        docker_exe="docker"
-    else
-        # 常见安装路径
-        for path in \
-            "$PROGRAMFILES/Docker/Docker/resources/bin/docker.exe" \
-            "/c/Program Files/Docker/Docker/resources/bin/docker.exe" \
-            "$LOCALAPPDATA/Programs/Docker/Docker/resources/bin/docker.exe" \
-            "/c/Program Files/Docker/Docker/resources/bin/com.docker.cli.exe" \
-        ; do
-            if [ -f "$path" ]; then
-                docker_exe="$path"
-                export PATH="$PATH:$(dirname "$path")"
-                log "找到 Docker CLI: $path"
-                break
+    # ---------- 查找 docker CLI ----------
+    find_docker_cli() {
+        if command -v docker &> /dev/null; then
+            docker_exe="docker"
+            return 0
+        fi
+        local paths=(
+            "$PROGRAMFILES/Docker/Docker/resources/bin/docker.exe"
+            "/c/Program Files/Docker/Docker/resources/bin/docker.exe"
+            "$LOCALAPPDATA/Programs/Docker/Docker/resources/bin/docker.exe"
+            "/c/Program Files/Docker/Docker/resources/bin/com.docker.cli.exe"
+        )
+        for p in "${paths[@]}"; do
+            if [ -f "$p" ]; then
+                docker_exe="$p"
+                export PATH="$PATH:$(dirname "$p")"
+                return 0
             fi
         done
-    fi
+        return 1
+    }
 
-    # 如果 docker 已可用，检查是否在运行
-    if [ -n "$docker_exe" ]; then
-        log "Docker Desktop 已安装"
-        # 尝试启动 Docker（如果没运行）
-        if ! "$docker_exe" ps &> /dev/null; then
-            log "Docker Desktop 未运行，尝试启动..."
-            # 通过 PowerShell 或 直接启动
-            if command -v powershell &> /dev/null; then
-                powershell -Command "Start-Process 'Docker Desktop' -WindowStyle Hidden" 2>/dev/null || true
+    # ---------- 启动 Docker Desktop 并等待就绪 ----------
+    wait_docker_ready() {
+        local exe="${1:-docker}"
+        log "启动 Docker Desktop..."
+        # 尝试多种方式启动
+        "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" 2>/dev/null || \
+        "/c/Program Files/Docker/Docker/Docker Desktop.exe" 2>/dev/null || \
+        powershell -Command "Start-Process 'Docker Desktop' -WindowStyle Hidden" 2>/dev/null || true
+        for i in $(seq 1 30); do
+            sleep 5
+            if "$exe" ps &> /dev/null 2>&1; then
+                success "Docker Desktop 启动成功"
+                "$exe" --version
+                return 0
             fi
-            # 等待 Docker 就绪
-            for i in $(seq 1 30); do
-                sleep 5
-                if "$docker_exe" ps &> /dev/null; then
-                    success "Docker Desktop 启动成功"
-                    "$docker_exe" --version
-                    return 0
-                fi
-                log "等待 Docker 启动 ($i/30)..."
-            done
-            warn "Docker Desktop 启动超时，正在尝试重新安装..."
-        else
+            log "等待 Docker 启动 ($i/30)..."
+        done
+        warn "Docker Desktop 启动超时"
+        return 1
+    }
+
+    local docker_exe=""
+
+    # 1. 先找 docker CLI 在不在
+    if find_docker_cli; then
+        log "Docker Desktop 已安装"
+        # 检查是否在运行
+        if "$docker_exe" ps &> /dev/null 2>&1; then
             success "Docker Desktop 已在运行"
             "$docker_exe" --version
             return 0
         fi
+        # 已安装但没运行，尝试启动
+        wait_docker_ready "$docker_exe" && return 0
+        # 启动超时，尝试修复
+        log "Docker 启动失败，尝试修复安装..."
     fi
 
-    # 方法1: winget 自动安装
+    # 2. 如果没找到 CLI，用 winget 检查是否已安装
     if command -v winget &> /dev/null; then
-        log "使用 winget 安装 Docker Desktop..."
-        for i in 1 2 3; do
-            winget install -e --id Docker.DockerDesktop --accept-source-agreements 2>&1 && break
-            log "重试 winget 安装 ($i/3)..."
-            sleep 3
-        done
-        sleep 10
-        # 安装后重新查找 docker
-        for path in \
-            "$PROGRAMFILES/Docker/Docker/resources/bin/docker.exe" \
-            "/c/Program Files/Docker/Docker/resources/bin/docker.exe" \
-        ; do
-            if [ -f "$path" ]; then
-                docker_exe="$path"
-                export PATH="$PATH:$(dirname "$path")"
-                break
+        if winget list --id Docker.DockerDesktop 2>/dev/null | grep -q "Docker"; then
+            log "Docker Desktop 已安装（通过 winget 检测到），查找 CLI 路径..."
+            if find_docker_cli; then
+                wait_docker_ready "$docker_exe" && return 0
             fi
-        done
-        if [ -n "$docker_exe" ]; then
-            log "启动 Docker Desktop..."
-            "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" 2>/dev/null || \
-            "/c/Program Files/Docker/Docker/Docker Desktop.exe" 2>/dev/null || true
-            for i in $(seq 1 30); do
-                sleep 5
-                if "$docker_exe" ps &> /dev/null; then
-                    success "Docker Desktop 安装并启动成功"
-                    "$docker_exe" --version
-                    return 0
-                fi
-            done
+            # 找到 exe 但启动不了，尝试修复
         fi
     fi
 
-    # 方法2: 下载安装包静默安装
+    # 3. 真的没安装，用 winget 安装
+    if command -v winget &> /dev/null; then
+        log "安装 Docker Desktop（winget）..."
+        winget install -e --id Docker.DockerDesktop --accept-source-agreements 2>&1
+        sleep 10
+        if find_docker_cli; then
+            wait_docker_ready "$docker_exe" && return 0
+        fi
+    fi
+
+    # 4. winget 不行，下载安装包
     log "下载 Docker Desktop 安装包..."
     local installer_urls=(
         "https://desktop.docker.com/win/stable/Docker%20Desktop%20Installer.exe"
@@ -336,20 +333,8 @@ install_docker_windows() {
         "$installer" install --accept-license --quiet 2>/dev/null || true
         rm -f "$installer"
         sleep 15
-        for path in \
-            "$PROGRAMFILES/Docker/Docker/resources/bin/docker.exe" \
-            "/c/Program Files/Docker/Docker/resources/bin/docker.exe" \
-        ; do
-            if [ -f "$path" ]; then
-                docker_exe="$path"
-                export PATH="$PATH:$(dirname "$path")"
-                break
-            fi
-        done
-        if [ -n "$docker_exe" ]; then
-            success "Docker Desktop 安装成功"
-            "$docker_exe" --version
-            return 0
+        if find_docker_cli; then
+            wait_docker_ready "$docker_exe" && return 0
         fi
     fi
 
