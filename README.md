@@ -27,7 +27,7 @@ Yunzai-Bot安卓手机一键部署
 请移步[【原神Q群机器人安卓手机部署帮助】](https://b23.tv/pg84aQ0)查看步骤
 
 ```
-bash <(curl -l https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh) 
+bash <(curl -sL https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master/YZv3.sh) 
 ```
 #### 其他
 
