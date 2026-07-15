@@ -72,7 +72,7 @@ detect_platform() {
     echo -e "${GREEN}当前平台: $CURRENT_PLATFORM ($CURRENT_OS)${NC}"
 }
 
-# ---------- 3. 安装环境依赖 ----------
+# ---------- 3. 安装环境依赖（每项验证，失败重试） ----------
 install_environment() {
     log "配置运行环境..."
 
@@ -88,22 +88,31 @@ install_environment() {
 
         "Linux")
             log "Linux 环境安装..."
+            local pm_install=""
+            local pkgs=()
             if command -v apt &>/dev/null; then
-                apt-get update -qq
-                # Node.js
-                curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-                apt-get install -y -qq nodejs git redis-server chromium-browser \
-                    fonts-wqy-microhei fonts-wqy-zenhei ffmpeg python3 python3-pip 2>/dev/null
-                # 启动 Redis
-                systemctl start redis-server 2>/dev/null || service redis-server start 2>/dev/null || redis-server --daemonize yes 2>/dev/null || true
+                curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>/dev/null || true
+                pm_install="apt-get install -y -qq"
+                pkgs=(nodejs git redis-server chromium-browser fonts-wqy-microhei fonts-wqy-zenhei ffmpeg python3 python3-pip)
             elif command -v yum &>/dev/null; then
-                curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
-                yum install -y nodejs git redis chromium ffmpeg python3 2>/dev/null
-                systemctl start redis 2>/dev/null || true
+                curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - 2>/dev/null || true
+                pm_install="yum install -y"
+                pkgs=(nodejs git redis chromium ffmpeg python3)
             elif command -v dnf &>/dev/null; then
-                dnf install -y nodejs git redis chromium ffmpeg python3 2>/dev/null
-                systemctl start redis 2>/dev/null || true
+                pm_install="dnf install -y"
+                pkgs=(nodejs git redis chromium ffmpeg python3)
+            else
+                error "不支持的 Linux 包管理器"
             fi
+            for pkg in "${pkgs[@]}"; do
+                for i in 1 2 3; do
+                    $pm_install "$pkg" 2>/dev/null && break
+                    log "安装 $pkg 失败，重试 ($i/3)..."
+                    sleep 2
+                done
+            done
+            # 启动 Redis
+            systemctl start redis-server 2>/dev/null || service redis-server start 2>/dev/null || redis-server --daemonize yes 2>/dev/null || true
             ;;
 
         "macOS")
@@ -111,36 +120,64 @@ install_environment() {
             if ! command -v brew &>/dev/null; then
                 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             fi
-            brew install node redis chromium ffmpeg python3 2>/dev/null
+            for pkg in node redis chromium ffmpeg python3; do
+                for i in 1 2 3; do
+                    brew install "$pkg" 2>/dev/null && break
+                    log "安装 $pkg 失败，重试 ($i/3)..."
+                    sleep 2
+                done
+            done
             brew services start redis 2>/dev/null || true
             ;;
 
         "Windows")
             log "Windows 环境安装..."
-            # Node.js
+            # Node.js（验证安装）
             if ! command -v node &>/dev/null; then
                 log "安装 Node.js..."
                 curl -fsSL -o /tmp/node-installer.msi "https://nodejs.org/dist/v20.19.1/node-v20.19.1-x64.msi" 2>/dev/null
                 if [ -f /tmp/node-installer.msi ]; then
                     powershell -Command "Start-Process msiexec -ArgumentList '/i /tmp/node-installer.msi /quiet /norestart' -Wait -NoNewWindow" 2>/dev/null || true
                     rm -f /tmp/node-installer.msi
+                    sleep 5
                 fi
+                export PATH="$PATH:/c/Program Files/nodejs"
+                command -v node &>/dev/null || error "Node.js 安装失败"
             fi
-            # Redis
-            if ! command -v redis-server &>/dev/null && ! net start 2>/dev/null | grep -qi redis; then
-                log "安装 Redis..."
-                curl -fsSL -o /tmp/redis-installer.msi "https://github.com/redis-windows/redis-windows/releases/latest/download/Redis-x64-msi.msi" 2>/dev/null
-                if [ -f /tmp/redis-installer.msi ]; then
-                    powershell -Command "Start-Process msiexec -ArgumentList '/i /tmp/redis-installer.msi /quiet /norestart' -Wait -NoNewWindow" 2>/dev/null || true
-                    rm -f /tmp/redis-installer.msi
+            success "Node.js $(node --version) 已就绪"
+            # npm
+            command -v npm &>/dev/null || error "npm 未安装"
+            success "npm $(npm --version) 已就绪"
+            # Redis（验证安装）
+            local redis_ok=false
+            for i in 1 2 3; do
+                redis-cli ping 2>/dev/null && redis_ok=true && break
+                command -v redis-server &>/dev/null && redis-server --daemonize yes 2>/dev/null && sleep 2 && redis-cli ping 2>/dev/null && redis_ok=true && break
+                if [ $i -eq 1 ]; then
+                    log "安装 Redis..."
+                    # 多源下载
+                    local redis_urls=(
+                        "https://github.com/redis-windows/redis-windows/releases/latest/download/Redis-x64-msi.msi"
+                        "https://github.com/redis-windows/redis-windows/releases/download/3.2.100/Redis-x64-3.2.100.msi"
+                    )
+                    local downloaded=""
+                    for url in "${redis_urls[@]}"; do
+                        curl -fsSL -o /tmp/redis.msi "$url" 2>/dev/null && downloaded="/tmp/redis.msi" && break
+                    done
+                    if [ -n "$downloaded" ] && [ -f "$downloaded" ]; then
+                        powershell -Command "Start-Process msiexec -ArgumentList '/i $downloaded /quiet /norestart' -Wait -NoNewWindow" 2>/dev/null || true
+                        rm -f "$downloaded"
+                        sleep 5
+                    fi
                 fi
-            fi
-            # Chromium（puppeteer 截图需要）
-            if ! command -v chromium &>/dev/null && ! [ -d "/c/Program Files/Chromium" ]; then
+                log "Redis 未就绪，重试 ($i/3)..."
+                sleep 3
+            done
+            $redis_ok && success "Redis 已就绪" || warn "Redis 未就绪，请手动启动后重试"
+            # Chromium（通过 puppeteer）
+            if ! command -v chromium &>/dev/null; then
                 log "安装 Chromium..."
-                # 通过 puppeteer 安装 Chromium
-                npm install -g puppeteer 2>/dev/null
-                npx puppeteer browsers install chrome 2>/dev/null || true
+                npx puppeteer browsers install chrome 2>/dev/null || warn "Chromium 安装失败"
             fi
             # 刷新 PATH
             export PATH="$PATH:/c/Program Files/nodejs:$LOCALAPPDATA/Programs/Redis"
@@ -151,11 +188,6 @@ install_environment() {
             ;;
     esac
 
-    # 验证关键环境
-    log "验证环境..."
-    node --version 2>/dev/null && success "Node.js 已安装" || warn "Node.js 未检测到"
-    npm --version 2>/dev/null && success "npm 已安装" || warn "npm 未检测到"
-    redis-cli --version 2>/dev/null && success "Redis 已安装" || warn "Redis 未检测到"
     success "环境配置完成"
 }
 
