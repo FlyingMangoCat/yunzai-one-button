@@ -383,12 +383,22 @@ install_yunzai() {
         local clone_success=false
         # 原地址 + 镜像地址轮换重试
         local clone_urls=("$repo_url")
-        # 如果是 gitee 仓库，加镜像
+        # 为 gitee 仓库添加 GitHub 镜像
         if echo "$repo_url" | grep -q "gitee.com"; then
-            local repo_path=$(echo "$repo_url" | sed 's|https://gitee.com/||')
-            clone_urls+=("https://gitee.com/$repo_path")
+            local repo_path=$(echo "$repo_url" | sed 's|https://gitee.com/||' | sed 's|\.git$||')
+            # MangoCat-Yunzai:  gitee=huifeidemangguomao → github=FlyingMangoCat
+            if echo "$repo_path" | grep -q "huifeidemangguomao/MangoCat-Yunzai"; then
+                clone_urls+=("https://github.com/FlyingMangoCat/MangoCat-Yunzai.git")
+                clone_urls+=("https://ghproxy.com/https://github.com/FlyingMangoCat/MangoCat-Yunzai.git")
+            fi
+            # Miao-Yunzai:  gitee=yoimiya-kokomi → github=yoimiya-kokomi
+            if echo "$repo_path" | grep -q "yoimiya-kokomi/Miao-Yunzai"; then
+                clone_urls+=("https://github.com/yoimiya-kokomi/Miao-Yunzai.git")
+                clone_urls+=("https://ghproxy.com/https://github.com/yoimiya-kokomi/Miao-Yunzai.git")
+            fi
+            clone_urls+=("https://gitee.com/$repo_path.git")
         fi
-        # 如果是 github 仓库，加镜像
+        # 为 github 仓库添加代理镜像
         if echo "$repo_url" | grep -q "github.com"; then
             local repo_path=$(echo "$repo_url" | sed 's|https://github.com/||')
             clone_urls+=("https://ghproxy.com/https://github.com/$repo_path")
@@ -437,13 +447,15 @@ install_yunzai() {
 
     # 8. 装插件（每装一个验证一个，失败重试）
     log "安装插件..."
-    install_plugin "miao-plugin" "https://gitcode.com/yoimiya-kokomi/miao-plugin.git" \
-        "https://ghproxy.com/https://github.com/yoimiya-kokomi/miao-plugin.git" \
-        "https://github.com/yoimiya-kokomi/miao-plugin.git"
+    install_plugin "miao-plugin" "https://github.com/yoimiya-kokomi/miao-plugin.git" \
+        "https://gitee.com/yoimiya-kokomi/miao-plugin.git" \
+        "https://gitcode.com/TimeRainStarSky/miao-plugin.git"
     install_plugin "xiaoyao-cvs-plugin" "https://github.com/Ctrlcvs/xiaoyao-cvs-plugin.git" \
+        "https://gitee.com/Ctrlcvs/xiaoyao-cvs-plugin.git" \
         "https://ghproxy.com/https://github.com/Ctrlcvs/xiaoyao-cvs-plugin.git"
-    install_plugin "liulian-plugin" "https://gitee.com/huifeidemangguomao/liulian-plugin.git" \
-        "https://gitee.com/huifeidemangguomao/liulian-plugin.git"
+    install_plugin "liulian-plugin" "https://github.com/FlyingMangoCat/liulian-plugin.git" \
+        "https://gitee.com/huifeidemangguomao/liulian-plugin.git" \
+        "https://ghproxy.com/https://github.com/FlyingMangoCat/liulian-plugin.git"
 
     # 9. 装插件依赖
     log "安装插件依赖..."
