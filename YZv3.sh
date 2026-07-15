@@ -276,7 +276,7 @@ install_plugin() {
     fi
     for url in "${urls[@]}"; do
         for i in 1 2 3; do
-            cd "$YUNZAI_DIR" && git clone --depth=1 "$url" "./plugins/$name" 2>/dev/null && \
+            git clone --depth=1 "$url" "$YUNZAI_DIR/plugins/$name" 2>/dev/null && \
             [ -d "$YUNZAI_DIR/plugins/$name" ] && log "  - $name 安装完成" && return
             log "  - $name 安装失败，重试 ($i/3)..."
             sleep 2
