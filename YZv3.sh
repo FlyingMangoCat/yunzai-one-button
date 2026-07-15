@@ -417,54 +417,56 @@ install_plugin() {
     warn "  - $name 安装失败，已尝试所有镜像源"
 }
 
-# ---------- 安装云崽（通用流程，每步验证+重试+镜像） ----------
+# ---------- 安装云崽（通用流程，每步验证+重试+镜像+断点续装） ----------
 install_yunzai() {
     local repo_url="$1"
     local version_name="$2"
 
     echo -e "\n${CYAN}========== 开始安装 $version_name ==========${NC}"
 
-    # 1. 获取权限
+    # 1. 获取权限（轻量操作，每次执行）
     get_permissions
 
-    # 2. 检测环境
+    # 2. 检测环境（轻量操作，每次执行）
     detect_platform
 
-    # 3. 检查 Docker
+    # 3. 检查 Docker（已装则跳过）
     check_install_docker
 
-    # 4. 创建总目录
+    # 4. 创建总目录（轻量操作，每次执行）
     mkdir -p "$YUNZAI_DIR" || error "创建目录 $YUNZAI_DIR 失败"
 
-    # 5. 确保容器在运行
-    ensure_container
-    sleep 2
-    if ! container_running; then
-        error "容器启动失败，请检查 Docker 状态"
+    # 5. 容器环境（检查断点：容器已存在则跳过构建）
+    if container_exists && container_running; then
+        log "容器环境已就绪，跳过"
+    else
+        ensure_container
+        sleep 2
+        if ! container_running; then
+            error "容器启动失败，请检查 Docker 状态"
+        fi
     fi
 
-    # 6. 在容器内克隆代码（含重试+镜像）
-    if ! docker_exec "test -f /app/package.json" 2>/dev/null; then
+    # 6. 克隆代码（检查断点：package.json 存在则跳过）
+    if docker_exec "test -f /app/package.json" 2>/dev/null; then
+        log "云崽代码已存在，跳过克隆"
+    else
         log "克隆 $version_name 代码..."
         local clone_success=false
-        # 原地址 + 镜像地址轮换重试
         local clone_urls=("$repo_url")
         # 为 gitee 仓库添加 GitHub 镜像
         if echo "$repo_url" | grep -q "gitee.com"; then
             local repo_path=$(echo "$repo_url" | sed 's|https://gitee.com/||' | sed 's|\.git$||')
-            # MangoCat-Yunzai:  gitee=huifeidemangguomao → github=FlyingMangoCat
             if echo "$repo_path" | grep -q "huifeidemangguomao/MangoCat-Yunzai"; then
                 clone_urls+=("https://github.com/FlyingMangoCat/MangoCat-Yunzai.git")
                 clone_urls+=("https://ghproxy.com/https://github.com/FlyingMangoCat/MangoCat-Yunzai.git")
             fi
-            # Miao-Yunzai:  gitee=yoimiya-kokomi → github=yoimiya-kokomi
             if echo "$repo_path" | grep -q "yoimiya-kokomi/Miao-Yunzai"; then
                 clone_urls+=("https://github.com/yoimiya-kokomi/Miao-Yunzai.git")
                 clone_urls+=("https://ghproxy.com/https://github.com/yoimiya-kokomi/Miao-Yunzai.git")
             fi
             clone_urls+=("https://gitee.com/$repo_path.git")
         fi
-        # 为 github 仓库添加代理镜像
         if echo "$repo_url" | grep -q "github.com"; then
             local repo_path=$(echo "$repo_url" | sed 's|https://github.com/||')
             clone_urls+=("https://ghproxy.com/https://github.com/$repo_path")
@@ -483,35 +485,37 @@ install_yunzai() {
             error "代码克隆失败，已尝试所有镜像源，请检查网络"
         fi
         success "代码克隆完成"
+    fi
+
+    # 7. 装依赖（检查断点：node_modules 存在则跳过）
+    if docker_exec "test -d /app/node_modules" 2>/dev/null; then
+        log "依赖已安装，跳过"
     else
-        log "云崽代码已存在"
-    fi
-
-    # 7. 装依赖（含重试+镜像）
-    log "安装依赖..."
-    local dep_success=false
-    local npm_registries=(
-        "https://registry.npmmirror.com"
-        "https://registry.npmjs.org"
-        "https://registry.npm.taobao.org"
-    )
-    for reg in "${npm_registries[@]}"; do
-        for i in 1 2 3; do
-            docker_exec "cd /app && npm install pnpm -g 2>/dev/null; npm install -g cnpm --registry=https://registry.npmmirror.com 2>/dev/null; cnpm install --registry=$reg" 2>/dev/null
-            if docker_exec "test -d /app/node_modules" 2>/dev/null; then
-                dep_success=true
-                break 2
-            fi
-            log "依赖安装失败，切换镜像重试 ($i/3)..."
-            sleep 2
+        log "安装依赖..."
+        local dep_success=false
+        local npm_registries=(
+            "https://registry.npmmirror.com"
+            "https://registry.npmjs.org"
+            "https://registry.npm.taobao.org"
+        )
+        for reg in "${npm_registries[@]}"; do
+            for i in 1 2 3; do
+                docker_exec "cd /app && npm install pnpm -g 2>/dev/null; npm install -g cnpm --registry=https://registry.npmmirror.com 2>/dev/null; cnpm install --registry=$reg" 2>/dev/null
+                if docker_exec "test -d /app/node_modules" 2>/dev/null; then
+                    dep_success=true
+                    break 2
+                fi
+                log "依赖安装失败，切换镜像重试 ($i/3)..."
+                sleep 2
+            done
         done
-    done
-    if [ "$dep_success" != true ]; then
-        error "依赖安装失败，已尝试所有镜像源"
+        if [ "$dep_success" != true ]; then
+            error "依赖安装失败，已尝试所有镜像源"
+        fi
+        success "依赖安装完成"
     fi
-    success "依赖安装完成"
 
-    # 8. 装插件（每装一个验证一个，失败重试）
+    # 8. 装插件（检查断点：每个插件目录存在则跳过）
     log "安装插件..."
     install_plugin "miao-plugin" "https://github.com/yoimiya-kokomi/miao-plugin.git" \
         "https://gitcode.com/TimeRainStarSky/miao-plugin.git" \
@@ -523,30 +527,38 @@ install_yunzai() {
         "https://gitee.com/huifeidemangguomao/liulian-plugin.git" \
         "https://ghproxy.com/https://github.com/FlyingMangoCat/liulian-plugin.git"
 
-    # 9. 装插件依赖
-    log "安装插件依赖..."
-    local pnpm_success=false
-    for i in 1 2 3; do
-        docker_exec "cd /app && pnpm install -P" 2>/dev/null && \
-        docker_exec "test -d /app/node_modules" 2>/dev/null && \
-        pnpm_success=true && break
-        log "插件依赖安装失败，重试 ($i/3)..."
-        sleep 3
-    done
-    if [ "$pnpm_success" != true ]; then
-        error "插件依赖安装失败"
-    fi
-    success "插件依赖安装完成"
-
-    # 10. 启动云崽
-    log "启动 $version_name ..."
-    docker_exec "cd /app && nohup node app > /app/yunzai.log 2>&1 &"
-    sleep 3
-    # 验证是否启动成功
-    if docker_exec "pgrep -f 'node app' > /dev/null" 2>/dev/null; then
-        echo -e "${GREEN}$version_name 已启动！${NC}"
+    # 9. 装插件依赖（检查断点：pnpm-lock.yaml 存在则跳过）
+    #    注意：cnpm install 生成 package-lock.json，pnpm install 生成 pnpm-lock.yaml
+    if docker_exec "test -f /app/pnpm-lock.yaml" 2>/dev/null; then
+        log "插件依赖已安装，跳过"
     else
-        warn "云崽可能未成功启动，请手动检查日志"
+        log "安装插件依赖..."
+        local pnpm_success=false
+        for i in 1 2 3; do
+            docker_exec "cd /app && pnpm install -P" 2>/dev/null && \
+            docker_exec "test -f /app/pnpm-lock.yaml" 2>/dev/null && \
+            pnpm_success=true && break
+            log "插件依赖安装失败，重试 ($i/3)..."
+            sleep 3
+        done
+        if [ "$pnpm_success" != true ]; then
+            error "插件依赖安装失败"
+        fi
+        success "插件依赖安装完成"
+    fi
+
+    # 10. 启动云崽（检查断点：node app 进程存在则跳过）
+    if docker_exec "pgrep -f 'node app' > /dev/null" 2>/dev/null; then
+        echo -e "${GREEN}$version_name 已在运行中${NC}"
+    else
+        log "启动 $version_name ..."
+        docker_exec "cd /app && nohup node app > /app/yunzai.log 2>&1 &"
+        sleep 3
+        if docker_exec "pgrep -f 'node app' > /dev/null" 2>/dev/null; then
+            echo -e "${GREEN}$version_name 已启动！${NC}"
+        else
+            warn "云崽可能未成功启动，请手动检查日志"
+        fi
     fi
     echo -e "${YELLOW}查看日志: docker exec $CONTAINER_NAME tail -f /app/yunzai.log${NC}"
     echo -e "${YELLOW}首次启动请配置主人QQ等参数${NC}"
