@@ -356,6 +356,25 @@ docker_exec() {
 
 ensure_container() {
     # 检查并启动容器
+    # 确保 docker-compose.yml 和 Dockerfile 存在（从远程下载）
+    local repo_base="https://gitee.com/huifeidemangguomao/yunzai-one-button/raw/master"
+    if [ ! -f "docker-compose.yml" ]; then
+        log "下载 docker-compose.yml..."
+        curl -fsSL -o docker-compose.yml "$repo_base/docker-compose.yml" || \
+            error "下载 docker-compose.yml 失败"
+    fi
+    if [ ! -f "Dockerfile" ]; then
+        log "下载 Dockerfile..."
+        curl -fsSL -o Dockerfile "$repo_base/Dockerfile" || \
+            error "下载 Dockerfile 失败"
+    fi
+    if [ ! -f "docker-entrypoint.sh" ]; then
+        log "下载 docker-entrypoint.sh..."
+        curl -fsSL -o docker-entrypoint.sh "$repo_base/docker-entrypoint.sh" || \
+            error "下载 docker-entrypoint.sh 失败"
+        chmod +x docker-entrypoint.sh
+    fi
+
     if ! container_exists; then
         # 首次：构建镜像并启动
         echo -e "${CYAN}========== 配置容器运行环境 ==========${NC}"
