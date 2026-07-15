@@ -113,34 +113,21 @@ check_install_docker() {
             # 各平台自动启动 Docker
             case "$CURRENT_PLATFORM" in
                 "Windows")
-                    # 启动 Docker 服务
-                    log "启动 Docker 服务..."
-                    net start com.docker.service 2>/dev/null || \
-                    powershell -Command "Start-Service com.docker.service -ErrorAction SilentlyContinue" 2>/dev/null || true
-                    # 如果服务启动失败，自动修复 WSL2 并重启 Docker
-                    if ! docker ps &> /dev/null; then
-                        log "Docker 未就绪，自动修复 WSL2 组件..."
-                        # 启用 WSL 功能（无需用户操作）
-                        powershell -Command "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -NoRestart -ErrorAction SilentlyContinue" 2>/dev/null || true
-                        powershell -Command "Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -NoRestart -ErrorAction SilentlyContinue" 2>/dev/null || true
-                        # 安装 WSL2 内核
-                        powershell -Command "wsl --update" 2>/dev/null || true
-                        powershell -Command "wsl --set-default-version 2" 2>/dev/null || true
-                        # 检查是否有 Linux 发行版，没有则自动安装
-                        local has_distro=$(powershell -Command "wsl -l -q" 2>/dev/null | tr -d '\0\r\n ')
-                        if [ -z "$has_distro" ]; then
-                            log "自动安装 Ubuntu WSL..."
-                            powershell -Command "wsl --install -d Ubuntu --no-launch" 2>/dev/null || true
-                            # 等待安装完成
-                            sleep 30
-                        fi
-                        # 重启 Docker Desktop
-                        log "重启 Docker Desktop..."
-                        taskkill //f //im "Docker Desktop.exe" 2>/dev/null || true
-                        sleep 3
-                        if [ -f "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" ]; then
-                            "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" &
-                        fi
+                    # 修复 Docker Desktop 后端崩溃：重置内部 WSL 组件
+                    log "修复 Docker Desktop 后端组件..."
+                    # 关闭所有 Docker 进程
+                    taskkill //f //im "Docker Desktop.exe" 2>/dev/null || true
+                    taskkill //f //im "com.docker.backend.exe" 2>/dev/null || true
+                    # 重置 Docker 内部 WSL 发行版（Docker 会自动重建）
+                    wsl --shutdown 2>/dev/null || true
+                    wsl --unregister docker-desktop 2>/dev/null || true
+                    wsl --unregister docker-desktop-data 2>/dev/null || true
+                    sleep 3
+                    # 启动 Docker Desktop
+                    if [ -f "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" ]; then
+                        "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" &
+                    elif [ -f "/c/Program Files/Docker/Docker/Docker Desktop.exe" ]; then
+                        "/c/Program Files/Docker/Docker/Docker Desktop.exe" &
                     fi
                     ;;
                 "macOS")
