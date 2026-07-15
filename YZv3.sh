@@ -104,6 +104,13 @@ check_install_docker() {
     if command -v docker &> /dev/null; then
         success "Docker 已安装"
         docker --version
+        # 验证 Docker 守护进程是否在运行
+        log "检查 Docker 守护进程..."
+        if docker ps &> /dev/null; then
+            success "Docker 守护进程运行中"
+        else
+            error "Docker 守护进程未运行，请手动启动 Docker Desktop 后重试"
+        fi
         return 0
     fi
 
@@ -388,15 +395,21 @@ ensure_container() {
         echo -e "  ${GREEN}•${NC} ffmpeg、Python 3.10 等依赖"
         echo -e "${CYAN}========================================${NC}"
         log "构建 Docker 镜像（首次需要下载依赖，请耐心等待）..."
-        docker-compose build
+        docker-compose build || error "Docker 镜像构建失败，请检查网络和 Docker 状态"
         log "启动容器..."
-        docker-compose up -d
+        docker-compose up -d || error "容器启动失败"
         sleep 3
+        if ! container_running; then
+            error "容器启动后未正常运行，请检查 Docker 状态"
+        fi
         echo -e "${GREEN}容器环境配置完成${NC}"
     elif ! container_running; then
         log "启动容器..."
-        docker-compose up -d
+        docker-compose up -d || error "容器启动失败"
         sleep 3
+        if ! container_running; then
+            error "容器启动后未正常运行"
+        fi
     fi
 }
 
