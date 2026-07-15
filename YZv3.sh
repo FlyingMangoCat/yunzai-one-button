@@ -134,15 +134,26 @@ check_install_docker() {
                     systemctl start docker 2>/dev/null || service docker start 2>/dev/null || true
                     ;;
             esac
-            # 等待 Docker 就绪
-            for i in $(seq 1 30); do
+            # 等待 Docker 就绪（带进程存活检测）
+            # 设置较短的 CLI 超时，避免 docker ps 挂起太久
+            export DOCKER_CLI_TIMEOUT=10
+            local docker_waited=0
+            while [ $docker_waited -lt 30 ]; do
                 sleep 5
-                if docker ps &> /dev/null; then
+                docker_waited=$((docker_waited + 1))
+                # 检查 Docker 是否就绪
+                if timeout 10 docker ps &> /dev/null; then
                     success "Docker 守护进程已启动"
                     docker --version
                     return 0
                 fi
-                log "等待 Docker 启动 ($i/30)..."
+                # Windows 下检查 Docker Desktop 后端进程是否还在
+                if [ "$CURRENT_PLATFORM" = "Windows" ] && ! pgrep -f "com.docker.backend" &> /dev/null; then
+                    warn "Docker Desktop 后端进程已退出，尝试重新启动..."
+                    "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" &>/dev/null &
+                    sleep 5
+                fi
+                log "等待 Docker 启动 ($docker_waited/30)..."
             done
             error "Docker 自动启动失败，请检查 Docker 安装状态"
         fi
