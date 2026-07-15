@@ -126,7 +126,7 @@ install_environment() {
                     rm -f /tmp/node-installer.msi
                 fi
             fi
-            # Redis (使用 Memurai 或 直接下载)
+            # Redis
             if ! command -v redis-server &>/dev/null && ! net start 2>/dev/null | grep -qi redis; then
                 log "安装 Redis..."
                 curl -fsSL -o /tmp/redis-installer.msi "https://github.com/redis-windows/redis-windows/releases/latest/download/Redis-x64-msi.msi" 2>/dev/null
@@ -134,6 +134,13 @@ install_environment() {
                     powershell -Command "Start-Process msiexec -ArgumentList '/i /tmp/redis-installer.msi /quiet /norestart' -Wait -NoNewWindow" 2>/dev/null || true
                     rm -f /tmp/redis-installer.msi
                 fi
+            fi
+            # Chromium（puppeteer 截图需要）
+            if ! command -v chromium &>/dev/null && ! [ -d "/c/Program Files/Chromium" ]; then
+                log "安装 Chromium..."
+                # 通过 puppeteer 安装 Chromium
+                npm install -g puppeteer 2>/dev/null
+                npx puppeteer browsers install chrome 2>/dev/null || true
             fi
             # 刷新 PATH
             export PATH="$PATH:/c/Program Files/nodejs:$LOCALAPPDATA/Programs/Redis"
