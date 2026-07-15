@@ -391,47 +391,50 @@ install_docker_wsl() {
     log "在 WSL2 中安装 Docker Engine..."
 
     # 检查 WSL 是否可用
-    if ! command -v wsl &> /dev/null; then
-        log "安装 WSL..."
+    if ! command -v wsl.exe &> /dev/null && ! command -v wsl &> /dev/null; then
+        log "安装 WSL 功能..."
         powershell -Command "wsl --install" 2>/dev/null || true
-        warn "WSL 安装后需要重启，请重启后重新运行脚本"
+        warn "WSL 安装后需要重启电脑，请重启后重新运行脚本"
         return 1
     fi
+    local wsl_cmd="wsl.exe"
+    command -v wsl &> /dev/null && wsl_cmd="wsl"
 
     # 检查 WSL 版本
-    local wsl_ver=$(powershell -Command "wsl --status" 2>/dev/null | grep "Default Version" | grep -o "2" || echo "0")
+    local wsl_ver=$("$wsl_cmd" --status 2>/dev/null | grep "默认版本" | grep -o "2" || echo "0")
     if [ "$wsl_ver" != "2" ]; then
         log "设置 WSL 默认版本为 2..."
-        powershell -Command "wsl --set-default-version 2" 2>/dev/null || true
+        "$wsl_cmd" --set-default-version 2 2>/dev/null || true
     fi
 
     # 检查是否有已安装的 Linux 发行版
-    local distro=$(powershell -Command "wsl -l -q" 2>/dev/null | head -1 | tr -d '\r' || echo "")
-    if [ -z "$distro" ]; then
-        log "安装 Ubuntu WSL 发行版..."
-        powershell -Command "wsl --install -d Ubuntu" 2>/dev/null || true
-        distro="Ubuntu"
-        warn "Ubuntu 安装后需要首次设置用户名密码，请完成设置后重新运行脚本"
+    local distro=$("$wsl_cmd" -l -q 2>/dev/null | head -1 | tr -d '\r\n' | tr -d '\0' || echo "")
+    if [ -z "$distro" ] || [ "$distro" = "Windows" ]; then
+        log "需要安装 Ubuntu WSL 发行版..."
+        echo -e "${YELLOW}执行以下命令安装 Ubuntu：${NC}"
+        echo -e "  ${CYAN}wsl --install -d Ubuntu${NC}"
+        echo -e "${YELLOW}安装完成后会提示设置用户名和密码，设置完毕后重新运行此脚本${NC}"
+        "$wsl_cmd" --install -d Ubuntu 2>/dev/null || true
         return 1
     fi
 
     # 在 WSL 中安装 Docker Engine
     log "在 $distro 中安装 Docker Engine..."
-    wsl -d "$distro" -e sh -c "
+    "$wsl_cmd" -d "$distro" -e sh -c "
         if ! command -v docker &>/dev/null; then
             sudo apt-get update -qq &&
             sudo apt-get install -y -qq ca-certificates curl &&
             sudo install -m 0755 -d /etc/apt/keyrings &&
             curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg &&
-            echo 'deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable' | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null &&
+            echo 'deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable' | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null &&
             sudo apt-get update -qq &&
             sudo apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
         fi
-    " 2>/dev/null
+    " 2>&1 | tail -5
 
-    # 配置 Docker 监听 TCP（让 Windows CLI 能连接）
+    # 配置 Docker 监听 TCP
     log "配置 Docker 远程访问..."
-    wsl -d "$distro" -e sh -c "
+    "$wsl_cmd" -d "$distro" -e sh -c "
         sudo mkdir -p /etc/systemd/system/docker.service.d &&
         echo '[Service]
 ExecStart=
@@ -441,7 +444,7 @@ ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375 --containerd=/run/cont
 
     # 启动 Docker
     log "启动 Docker..."
-    wsl -d "$distro" -e sudo service docker start 2>/dev/null
+    "$wsl_cmd" -d "$distro" -e sudo service docker start 2>/dev/null
 
     # 设置 Windows 环境变量 DOCKER_HOST
     export DOCKER_HOST=tcp://localhost:2375
@@ -455,7 +458,7 @@ ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375 --containerd=/run/cont
         return 0
     fi
 
-    warn "Docker Engine 安装可能未完成，请检查 WSL 状态"
+    warn "Docker Engine 安装可能未完成"
     return 1
 }
 
