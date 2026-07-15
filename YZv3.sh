@@ -113,24 +113,31 @@ check_install_docker() {
             # 各平台自动启动 Docker
             case "$CURRENT_PLATFORM" in
                 "Windows")
-                    # 方法1: dockerd 直接启动守护进程（最可靠，无窗口）
-                    local dockerd_path=""
+                    # Windows Docker 架构：Docker Desktop 通过 WSL VM 运行 dockerd
+                    # 不能直接运行 dockerd.exe（那是 Windows 容器引擎）
+                    # 正确方式：启动服务或 backend
+                    local started=false
+                    # 方法1: com.docker.admin.exe start-service（官方静默启动）
                     for p in \
-                        "$PROGRAMFILES/Docker/Docker/resources/bin/dockerd.exe" \
-                        "/c/Program Files/Docker/Docker/resources/bin/dockerd.exe" \
-                        "$PROGRAMFILES/Docker/Docker/resources/dockerd.exe" \
-                        "/c/Program Files/Docker/Docker/resources/dockerd.exe"
+                        "$PROGRAMFILES/Docker/Docker/resources/com.docker.admin.exe" \
+                        "/c/Program Files/Docker/Docker/resources/com.docker.admin.exe"
                     do
                         if [ -f "$p" ]; then
-                            dockerd_path="$p"
+                            log "通过 com.docker.admin 启动服务..."
+                            "$p" start-service &>/dev/null &
+                            started=true
                             break
                         fi
                     done
-                    if [ -n "$dockerd_path" ]; then
-                        log "启动 Docker 守护进程..."
-                        "$dockerd_path" &>/dev/null &
-                    else
-                        # 方法2: backend 无窗口启动
+                    # 方法2: 启动 Windows 服务
+                    if ! "$started"; then
+                        log "启动 Docker Windows 服务..."
+                        powershell -Command "Start-Service com.docker.service -ErrorAction SilentlyContinue" 2>/dev/null || true
+                        net start com.docker.service 2>/dev/null || true
+                        started=true
+                    fi
+                    # 方法3: backend 无窗口启动
+                    if ! docker ps &> /dev/null; then
                         for p in \
                             "$PROGRAMFILES/Docker/Docker/resources/com.docker.backend.exe" \
                             "/c/Program Files/Docker/Docker/resources/com.docker.backend.exe"
@@ -141,17 +148,11 @@ check_install_docker() {
                                 break
                             fi
                         done
-                        # 方法3: 启动 Docker 服务
-                        if ! docker ps &> /dev/null; then
-                            log "尝试启动 Docker 服务..."
-                            powershell -Command "Start-Service com.docker.service -ErrorAction SilentlyContinue" 2>/dev/null || true
-                            net start com.docker.service 2>/dev/null || true
-                        fi
-                        # 方法4: 静默启动 Docker Desktop（隐藏窗口）
-                        if ! docker ps &> /dev/null; then
-                            log "尝试静默启动 Docker Desktop..."
-                            powershell -Command "Start-Process 'Docker Desktop' -WindowStyle Hidden" 2>/dev/null || true
-                        fi
+                    fi
+                    # 方法4: 静默启动 Docker Desktop（隐藏窗口，兜底）
+                    if ! docker ps &> /dev/null; then
+                        log "尝试静默启动 Docker Desktop..."
+                        powershell -Command "Start-Process 'Docker Desktop' -WindowStyle Hidden" 2>/dev/null || true
                     fi
                     ;;
                 "macOS")
