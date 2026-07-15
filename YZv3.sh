@@ -277,9 +277,11 @@ install_yunzai() {
 
     # 4.9 安装插件依赖
     log "安装插件依赖..."
+    # pnpm v10+ 默认阻止 build scripts，需放行
+    pnpm config set onlyBuiltDependencies '["puppeteer","sqlite3"]' --location=project 2>/dev/null || true
     local ok=false
     for i in 1 2 3; do
-        pnpm install -P 2>/dev/null && [ -f "pnpm-lock.yaml" ] && ok=true && break
+        pnpm install -P 2>/dev/null && [ -d "node_modules" ] && ok=true && break
         log "插件依赖安装失败，重试 ($i/3)..."
         sleep 3
     done
