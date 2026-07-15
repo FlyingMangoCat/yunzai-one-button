@@ -125,11 +125,20 @@ check_install_docker() {
             # 各平台自动启动 Docker
             case "$CURRENT_PLATFORM" in
                 "Windows")
+                    # 先启用 WSL 功能（如果没装）
+                    log "启用 WSL 系统组件..."
+                    powershell -Command "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -NoRestart -ErrorAction SilentlyContinue" 2>/dev/null || true
+                    powershell -Command "Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -NoRestart -ErrorAction SilentlyContinue" 2>/dev/null || true
+                    # 安装 WSL 内核
+                    wsl.exe --update 2>/dev/null || true
+                    wsl.exe --set-default-version 2 2>/dev/null || true
+                    sleep 5
+
                     # 自动重装 Docker Desktop（修复后端崩溃）
                     log "Docker 后端异常，自动重装..."
                     taskkill //f //im "Docker Desktop.exe" 2>/dev/null || true
                     taskkill //f //im "com.docker.backend.exe" 2>/dev/null || true
-                    wsl --shutdown 2>/dev/null || true
+                    wsl.exe --shutdown 2>/dev/null || true
                     # 卸载 Docker Desktop
                     powershell -Command "Get-Package 'Docker Desktop' -ErrorAction SilentlyContinue | Uninstall-Package -Force -ErrorAction SilentlyContinue" 2>/dev/null || true
                     # 清理残留
