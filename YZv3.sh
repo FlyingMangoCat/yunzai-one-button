@@ -173,52 +173,80 @@ install_docker_macos() {
         log "安装 Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     fi
-    brew install --cask docker
-    warn "请手动启动 Docker Desktop，然后重新运行此脚本"
-    read -p "按回车键继续..."
+    log "安装 Docker Desktop..."
+    brew install --cask docker 2>&1 || error "Docker Desktop 安装失败"
+    # 尝试启动 Docker Desktop
+    log "启动 Docker Desktop..."
+    open -a Docker 2>/dev/null || true
+    sleep 10
+    # 等待 Docker 可用
+    for i in $(seq 1 30); do
+        if command -v docker &> /dev/null && docker ps &> /dev/null; then
+            success "Docker Desktop 安装并启动成功"
+            docker --version
+            return 0
+        fi
+        sleep 5
+    done
+    error "Docker Desktop 启动超时，请手动启动 Docker Desktop 应用"
 }
 
 install_docker_windows() {
     log "在 Windows 中安装 Docker..."
 
-    # 尝试 winget 自动安装（Windows 10/11 自带）
+    # 方法1: winget 自动安装
     if command -v winget &> /dev/null; then
-        log "检测到 winget，自动安装 Docker Desktop..."
-        winget install -e --id Docker.DockerDesktop --accept-source-agreements 2>&1 || true
-        # 等待安装完成
-        sleep 5
+        log "使用 winget 安装 Docker Desktop..."
+        for i in 1 2 3; do
+            winget install -e --id Docker.DockerDesktop --accept-source-agreements 2>&1 && break
+            log "重试 winget 安装 ($i/3)..."
+            sleep 3
+        done
+        sleep 10
         if command -v docker &> /dev/null; then
             success "Docker Desktop 安装成功"
             docker --version
             return 0
         fi
-        warn "winget 安装未完成，请检查 Docker Desktop 是否已安装"
     fi
 
-    # 尝试下载安装包静默安装
-    if command -v curl &> /dev/null; then
-        log "下载 Docker Desktop 安装包..."
-        curl -L -o /tmp/DockerDesktopInstaller.exe "https://desktop.docker.com/win/stable/Docker%20Desktop%20Installer.exe" 2>/dev/null
-        if [ -f /tmp/DockerDesktopInstaller.exe ]; then
-            log "静默安装 Docker Desktop..."
-            /tmp/DockerDesktopInstaller.exe install --accept-license --quiet 2>/dev/null || true
-            rm -f /tmp/DockerDesktopInstaller.exe
-            sleep 10
-            if command -v docker &> /dev/null; then
-                success "Docker Desktop 安装成功"
-                docker --version
-                return 0
-            fi
+    # 方法2: 下载安装包静默安装
+    log "下载 Docker Desktop 安装包..."
+    local installer_urls=(
+        "https://desktop.docker.com/win/stable/Docker%20Desktop%20Installer.exe"
+        "https://mirrors.aliyun.com/docker/win/stable/Docker%20Desktop%20Installer.exe"
+    )
+    local installer=""
+    for url in "${installer_urls[@]}"; do
+        log "尝试下载: $url"
+        curl -fsSL -o /tmp/docker-installer.exe "$url" 2>/dev/null && installer="/tmp/docker-installer.exe" && break
+    done
+
+    if [ -n "$installer" ] && [ -f "$installer" ]; then
+        log "静默安装 Docker Desktop..."
+        "$installer" install --accept-license --quiet 2>/dev/null || true
+        rm -f "$installer"
+        sleep 15
+        if command -v docker &> /dev/null; then
+            success "Docker Desktop 安装成功"
+            docker --version
+            return 0
         fi
     fi
 
-    # 以上都失败，提示手动安装
-    echo -e "${YELLOW}未能自动安装 Docker Desktop，请手动操作：${NC}"
-    echo -e "1. 访问 https://www.docker.com/products/docker-desktop"
-    echo -e "2. 下载并安装 Docker Desktop"
-    echo -e "3. 启动 Docker Desktop"
-    echo -e "4. 安装完成后重新运行此脚本"
-    read -p "按回车键继续..."
+    # 方法3: 使用 PowerShell 安装
+    if command -v powershell &> /dev/null; then
+        log "使用 PowerShell 安装 Docker Desktop..."
+        powershell -Command "Start-Process -FilePath 'winget' -ArgumentList 'install -e --id Docker.DockerDesktop --accept-source-agreements' -Wait -NoNewWindow" 2>/dev/null || true
+        sleep 15
+        if command -v docker &> /dev/null; then
+            success "Docker Desktop 安装成功"
+            docker --version
+            return 0
+        fi
+    fi
+
+    error "Docker Desktop 自动安装失败，请手动安装后重试: https://www.docker.com/products/docker-desktop"
 }
 
 # ---------- 容器辅助函数 ----------
@@ -261,7 +289,28 @@ ensure_container() {
     fi
 }
 
-# ---------- 安装云崽（通用流程，每步验证） ----------
+# ---------- 安装插件通用函数（多镜像重试） ----------
+install_plugin() {
+    local name="$1"
+    shift
+    local urls=("$@")
+    if docker_exec "test -d /app/plugins/$name" 2>/dev/null; then
+        log "  - $name 已存在，跳过"
+        return
+    fi
+    for url in "${urls[@]}"; do
+        for i in 1 2 3; do
+            docker_exec "cd /app && git clone --depth=1 $url ./plugins/$name" 2>/dev/null && \
+            docker_exec "test -d /app/plugins/$name" 2>/dev/null && \
+            log "  - $name 安装完成" && return
+            log "  - $name 安装失败，重试 ($i/3)..."
+            sleep 2
+        done
+    done
+    warn "  - $name 安装失败，已尝试所有镜像源"
+}
+
+# ---------- 安装云崽（通用流程，每步验证+重试+镜像） ----------
 install_yunzai() {
     local repo_url="$1"
     local version_name="$2"
@@ -287,53 +336,99 @@ install_yunzai() {
         error "容器启动失败，请检查 Docker 状态"
     fi
 
-    # 6. 在容器内克隆代码
+    # 6. 在容器内克隆代码（含重试+镜像）
     if ! docker_exec "test -f /app/package.json" 2>/dev/null; then
         log "克隆 $version_name 代码..."
-        docker_exec "cd /app && git clone $repo_url ." || error "代码克隆失败，请检查网络连接"
-        # 验证克隆是否成功
-        docker_exec "test -f /app/package.json" || error "代码克隆后未检测到 package.json"
+        local clone_success=false
+        # 原地址 + 镜像地址轮换重试
+        local clone_urls=("$repo_url")
+        # 如果是 gitee 仓库，加镜像
+        if echo "$repo_url" | grep -q "gitee.com"; then
+            local repo_path=$(echo "$repo_url" | sed 's|https://gitee.com/||')
+            clone_urls+=("https://gitee.com/$repo_path")
+        fi
+        # 如果是 github 仓库，加镜像
+        if echo "$repo_url" | grep -q "github.com"; then
+            local repo_path=$(echo "$repo_url" | sed 's|https://github.com/||')
+            clone_urls+=("https://ghproxy.com/https://github.com/$repo_path")
+            clone_urls+=("https://hub.fastgit.xyz/$repo_path")
+        fi
+        for url in "${clone_urls[@]}"; do
+            for i in 1 2 3; do
+                docker_exec "cd /app && git clone --depth=1 $url ." 2>/dev/null && \
+                docker_exec "test -f /app/package.json" 2>/dev/null && \
+                clone_success=true && break 2
+                log "克隆失败，重试 ($i/3)..."
+                sleep 2
+            done
+        done
+        if [ "$clone_success" != true ]; then
+            error "代码克隆失败，已尝试所有镜像源，请检查网络"
+        fi
         success "代码克隆完成"
     else
         log "云崽代码已存在"
     fi
 
-    # 7. 装依赖
+    # 7. 装依赖（含重试+镜像）
     log "安装依赖..."
-    docker_exec "cd /app && npm install pnpm -g 2>/dev/null; npm install -g cnpm --registry=https://registry.npmmirror.com 2>/dev/null; cnpm install" || warn "依赖安装有警告，继续..."
-    # 验证依赖是否安装成功
-    docker_exec "test -d /app/node_modules" || error "依赖安装失败，node_modules 不存在"
+    local dep_success=false
+    local npm_registries=(
+        "https://registry.npmmirror.com"
+        "https://registry.npmjs.org"
+        "https://registry.npm.taobao.org"
+    )
+    for reg in "${npm_registries[@]}"; do
+        for i in 1 2 3; do
+            docker_exec "cd /app && npm install pnpm -g 2>/dev/null; npm install -g cnpm --registry=https://registry.npmmirror.com 2>/dev/null; cnpm install --registry=$reg" 2>/dev/null
+            if docker_exec "test -d /app/node_modules" 2>/dev/null; then
+                dep_success=true
+                break 2
+            fi
+            log "依赖安装失败，切换镜像重试 ($i/3)..."
+            sleep 2
+        done
+    done
+    if [ "$dep_success" != true ]; then
+        error "依赖安装失败，已尝试所有镜像源"
+    fi
     success "依赖安装完成"
 
-    # 8. 装插件（每装一个验证一个）
+    # 8. 装插件（每装一个验证一个，失败重试）
     log "安装插件..."
-    if ! docker_exec "test -d /app/plugins/miao-plugin" 2>/dev/null; then
-        docker_exec "cd /app && git clone --depth=1 https://gitcode.com/yoimiya-kokomi/miao-plugin.git ./plugins/miao-plugin/" || warn "喵喵插件克隆失败"
-        docker_exec "test -d /app/plugins/miao-plugin" && log "  - 喵喵插件 安装完成" || warn "  - 喵喵插件 未检测到"
-    fi
-    if ! docker_exec "test -d /app/plugins/xiaoyao-cvs-plugin" 2>/dev/null; then
-        docker_exec "cd /app && git clone https://github.com/Ctrlcvs/xiaoyao-cvs-plugin.git ./plugins/xiaoyao-cvs-plugin/" || warn "图鉴插件克隆失败"
-        docker_exec "test -d /app/plugins/xiaoyao-cvs-plugin" && log "  - 图鉴插件 安装完成" || warn "  - 图鉴插件 未检测到"
-    fi
-    if ! docker_exec "test -d /app/plugins/liulian-plugin" 2>/dev/null; then
-        docker_exec "cd /app && git clone https://gitee.com/huifeidemangguomao/liulian-plugin.git ./plugins/liulian-plugin/" || warn "榴莲插件克隆失败"
-        docker_exec "test -d /app/plugins/liulian-plugin" && log "  - 榴莲插件 安装完成" || warn "  - 榴莲插件 未检测到"
-    fi
+    install_plugin "miao-plugin" "https://gitcode.com/yoimiya-kokomi/miao-plugin.git" \
+        "https://ghproxy.com/https://github.com/yoimiya-kokomi/miao-plugin.git" \
+        "https://github.com/yoimiya-kokomi/miao-plugin.git"
+    install_plugin "xiaoyao-cvs-plugin" "https://github.com/Ctrlcvs/xiaoyao-cvs-plugin.git" \
+        "https://ghproxy.com/https://github.com/Ctrlcvs/xiaoyao-cvs-plugin.git"
+    install_plugin "liulian-plugin" "https://gitee.com/huifeidemangguomao/liulian-plugin.git" \
+        "https://gitee.com/huifeidemangguomao/liulian-plugin.git"
 
     # 9. 装插件依赖
     log "安装插件依赖..."
-    docker_exec "cd /app && pnpm install -P" || warn "插件依赖安装有警告，继续..."
-    docker_exec "test -d /app/node_modules" || error "插件依赖安装后 node_modules 丢失"
+    local pnpm_success=false
+    for i in 1 2 3; do
+        docker_exec "cd /app && pnpm install -P" 2>/dev/null && \
+        docker_exec "test -d /app/node_modules" 2>/dev/null && \
+        pnpm_success=true && break
+        log "插件依赖安装失败，重试 ($i/3)..."
+        sleep 3
+    done
+    if [ "$pnpm_success" != true ]; then
+        error "插件依赖安装失败"
+    fi
     success "插件依赖安装完成"
 
     # 10. 启动云崽
     log "启动 $version_name ..."
     docker_exec "cd /app && nohup node app > /app/yunzai.log 2>&1 &"
-    sleep 2
-    # 验证是否启动成功（检查进程）
-    docker_exec "pgrep -f 'node app' > /dev/null" && \
-        echo -e "${GREEN}$version_name 已启动！${NC}" || \
-        warn "云崽可能未成功启动，请手动检查: docker exec $CONTAINER_NAME tail -f /app/yunzai.log"
+    sleep 3
+    # 验证是否启动成功
+    if docker_exec "pgrep -f 'node app' > /dev/null" 2>/dev/null; then
+        echo -e "${GREEN}$version_name 已启动！${NC}"
+    else
+        warn "云崽可能未成功启动，请手动检查日志"
+    fi
     echo -e "${YELLOW}查看日志: docker exec $CONTAINER_NAME tail -f /app/yunzai.log${NC}"
     echo -e "${YELLOW}首次启动请配置主人QQ等参数${NC}"
 }
