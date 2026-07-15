@@ -276,19 +276,15 @@ install_yunzai() {
         "https://gitee.com/huifeidemangguomao/liulian-plugin.git"
 
     # 4.9 安装插件依赖
-    if [ -f "pnpm-lock.yaml" ]; then
-        log "插件依赖已安装，跳过"
-    else
-        log "安装插件依赖..."
-        local ok=false
-        for i in 1 2 3; do
-            pnpm install -P 2>/dev/null && [ -f "pnpm-lock.yaml" ] && ok=true && break
-            log "插件依赖安装失败，重试 ($i/3)..."
-            sleep 3
-        done
-        $ok || error "插件依赖安装失败"
-        success "插件依赖安装完成"
-    fi
+    log "安装插件依赖..."
+    local ok=false
+    for i in 1 2 3; do
+        pnpm install -P 2>/dev/null && [ -f "pnpm-lock.yaml" ] && ok=true && break
+        log "插件依赖安装失败，重试 ($i/3)..."
+        sleep 3
+    done
+    $ok || error "插件依赖安装失败"
+    success "插件依赖安装完成"
 
     cd ..
 
