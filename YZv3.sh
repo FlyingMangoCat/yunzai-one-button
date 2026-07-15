@@ -5,6 +5,18 @@
 # 版本: 2.0.0
 # ===========================================
 
+# ---------- Windows 自动提权（无需用户手动以管理员运行） ----------
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+    # 检查是否已经是管理员
+    powershell -Command "New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent()) | ? { \$_.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) }" &>/dev/null
+    if [ $? -ne 0 ]; then
+        # 不是管理员，自动提权
+        echo "正在申请管理员权限..."
+        powershell -Command "Start-Process -FilePath 'bash' -ArgumentList '-c \"cd $(pwd) && bash $0\"' -Verb RunAs -WindowStyle Hidden" 2>/dev/null
+        exit 0
+    fi
+fi
+
 # ---------- 配置 ----------
 VERSION="2.0.0"
 SUPPORT_GROUP="658720198"
