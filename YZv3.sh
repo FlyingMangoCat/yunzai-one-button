@@ -148,29 +148,31 @@ install_environment() {
             # npm
             command -v npm &>/dev/null || error "npm 未安装"
             success "npm $(npm --version) 已就绪"
-            # Redis（验证安装）
+            # Redis（验证安装，winget 优先）
             local redis_ok=false
             for i in 1 2 3; do
                 redis-cli ping 2>/dev/null && redis_ok=true && break
                 command -v redis-server &>/dev/null && redis-server --daemonize yes 2>/dev/null && sleep 2 && redis-cli ping 2>/dev/null && redis_ok=true && break
-                if [ $i -eq 1 ]; then
-                    log "安装 Redis..."
-                    # 多源下载
-                    local redis_urls=(
-                        "https://github.com/redis-windows/redis-windows/releases/latest/download/Redis-x64-msi.msi"
-                        "https://github.com/redis-windows/redis-windows/releases/download/3.2.100/Redis-x64-3.2.100.msi"
-                    )
-                    local downloaded=""
-                    for url in "${redis_urls[@]}"; do
-                        curl -fsSL -o /tmp/redis.msi "$url" 2>/dev/null && downloaded="/tmp/redis.msi" && break
-                    done
-                    if [ -n "$downloaded" ] && [ -f "$downloaded" ]; then
-                        powershell -Command "Start-Process msiexec -ArgumentList '/i $downloaded /quiet /norestart' -Wait -NoNewWindow" 2>/dev/null || true
-                        rm -f "$downloaded"
-                        sleep 5
-                    fi
+                log "安装 Redis (尝试 $i/3)..."
+                # winget 安装
+                if command -v winget &>/dev/null; then
+                    winget install -e --id Redis.Redis --accept-source-agreements 2>/dev/null && sleep 5 && redis-cli ping 2>/dev/null && redis_ok=true && break
                 fi
-                log "Redis 未就绪，重试 ($i/3)..."
+                # MSI 下载安装
+                local redis_urls=(
+                    "https://github.com/redis-windows/redis-windows/releases/latest/download/Redis-x64-msi.msi"
+                    "https://github.com/redis-windows/redis-windows/releases/download/3.2.100/Redis-x64-3.2.100.msi"
+                )
+                local downloaded=""
+                for url in "${redis_urls[@]}"; do
+                    curl -fsSL -o /tmp/redis.msi "$url" 2>/dev/null && downloaded="/tmp/redis.msi" && break
+                done
+                if [ -n "$downloaded" ] && [ -f "$downloaded" ]; then
+                    powershell -Command "Start-Process msiexec -ArgumentList '/i $downloaded /quiet /norestart' -Wait -NoNewWindow" 2>/dev/null || true
+                    rm -f "$downloaded"
+                    sleep 5
+                    redis-cli ping 2>/dev/null && redis_ok=true && break
+                fi
                 sleep 3
             done
             $redis_ok && success "Redis 已就绪" || warn "Redis 未就绪，请手动启动后重试"
