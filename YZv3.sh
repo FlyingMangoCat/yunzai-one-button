@@ -313,14 +313,13 @@ install_yunzai() {
     log "安装插件依赖..."
     # pnpm v10+ 默认阻止 build scripts，放行所需包
     pnpm approve-builds puppeteer sqlite3 2>/dev/null || true
-    local ok=false
-    for i in 1 2 3; do
-        pnpm install -P 2>/dev/null && [ -d "node_modules" ] && ok=true && break
-        log "插件依赖安装失败，重试 ($i/3)..."
-        sleep 3
-    done
-    $ok || error "插件依赖安装失败"
-    success "插件依赖安装完成"
+    # 跳过 build scripts（sqlite3 编译需要 Visual Studio，预编译包下载可能需要代理）
+    pnpm install -P --ignore-scripts 2>/dev/null
+    if [ -d "node_modules" ]; then
+        success "插件依赖安装完成"
+    else
+        error "插件依赖安装失败"
+    fi
 
     cd ..
 
