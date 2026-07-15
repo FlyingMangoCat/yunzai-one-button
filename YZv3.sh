@@ -119,19 +119,43 @@ check_install_docker() {
 
 install_docker_termux() {
     log "在 Termux 中安装 Docker..."
-    termux-setup-storage
-    termux-wake-lock
-    pkg update && pkg upgrade -y
-    pkg install -y git proot docker
+    termux-setup-storage 2>/dev/null || true
+    termux-wake-lock 2>/dev/null || true
+
+    # 配置 Termux 镜像源（国内加速）
+    log "配置包管理器镜像..."
+    if command -v termux-change-repo &> /dev/null; then
+        termux-change-repo 2>/dev/null || true
+    fi
+    # 手动替换为清华镜像
+    sed -i 's|^deb https://termux.org|deb https://mirrors.tuna.tsinghua.edu.cn/termux|g' $PREFIX/etc/apt/sources.list 2>/dev/null || true
+
+    # 更新并安装 Docker（带重试）
+    for i in 1 2 3; do
+        pkg update -y 2>/dev/null && pkg upgrade -y 2>/dev/null && break
+        log "pkg 更新失败，重试 ($i/3)..."
+        sleep 3
+    done
+    for i in 1 2 3; do
+        pkg install -y git proot docker 2>/dev/null && break
+        log "pkg 安装失败，重试 ($i/3)..."
+        sleep 3
+    done
+
+    # 启动 Docker 服务
     log "启动 Docker 服务..."
     dockerd --host=unix:///data/data/com.termux/files/usr/var/run/docker.sock --iptables=false &
-    sleep 5
-    if docker ps &> /dev/null; then
-        success "Docker 安装并启动成功"
-        docker --version
-    else
-        error "Docker 启动失败，请检查权限和配置"
-    fi
+    local waited=0
+    while [ $waited -lt 30 ]; do
+        if docker ps &> /dev/null; then
+            success "Docker 安装并启动成功"
+            docker --version
+            return 0
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+    error "Docker 启动失败，请检查 Termux 权限配置"
 }
 
 install_docker_linux() {
@@ -142,29 +166,46 @@ install_docker_linux() {
     else
         error "无法检测 Linux 发行版"
     fi
+
     case $DISTRO in
         ubuntu|debian)
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-            add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-            apt-get update
-            apt-get install -y docker-ce docker-ce-cli containerd.io
+            # 国内镜像加速
+            local docker_repo="https://download.docker.com/linux/$DISTRO"
+            curl -fsSL "${docker_repo}/gpg" | apt-key add - 2>/dev/null || \
+            curl -fsSL "https://mirrors.aliyun.com/docker-ce/linux/$DISTRO/gpg" | apt-key add - 2>/dev/null
+            add-apt-repository "deb [arch=amd64] ${docker_repo} $(lsb_release -cs) stable" 2>/dev/null || \
+            add-apt-repository "deb [arch=amd64] https://mirrors.aliyun.com/docker-ce/linux/$DISTRO $(lsb_release -cs) stable" 2>/dev/null
+            for i in 1 2 3; do
+                apt-get update 2>/dev/null && apt-get install -y docker-ce docker-ce-cli containerd.io 2>/dev/null && break
+                log "apt 安装失败，重试 ($i/3)..."
+                sleep 3
+            done
             ;;
-        centos|rhel)
-            yum install -y yum-utils
-            yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-            yum install -y docker-ce docker-ce-cli containerd.io
-            ;;
-        fedora)
-            dnf -y install dnf-plugins-core
-            dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-            dnf install -y docker-ce docker-ce-cli containerd.io
+        centos|rhel|fedora)
+            local pm="yum"
+            [ "$DISTRO" = "fedora" ] && pm="dnf"
+            local repo_url="https://download.docker.com/linux/$DISTRO/docker-ce.repo"
+            $pm install -y yum-utils dnf-plugins-core 2>/dev/null
+            $pm-config-manager --add-repo "$repo_url" 2>/dev/null || \
+            $pm-config-manager --add-repo "https://mirrors.aliyun.com/docker-ce/linux/$DISTRO/docker-ce.repo" 2>/dev/null
+            for i in 1 2 3; do
+                $pm install -y docker-ce docker-ce-cli containerd.io 2>/dev/null && break
+                log "$pm 安装失败，重试 ($i/3)..."
+                sleep 3
+            done
             ;;
         *) error "不支持的 Linux 发行版: $DISTRO" ;;
     esac
-    systemctl start docker
-    systemctl enable docker
-    success "Docker 安装完成"
-    docker --version
+
+    systemctl start docker 2>/dev/null || service docker start 2>/dev/null
+    systemctl enable docker 2>/dev/null || true
+
+    if command -v docker &> /dev/null; then
+        success "Docker 安装完成"
+        docker --version
+    else
+        error "Docker 安装失败"
+    fi
 }
 
 install_docker_macos() {
