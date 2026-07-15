@@ -109,7 +109,32 @@ check_install_docker() {
         if docker ps &> /dev/null; then
             success "Docker 守护进程运行中"
         else
-            error "Docker 守护进程未运行，请手动启动 Docker Desktop 后重试"
+            warn "Docker 守护进程未运行，尝试自动启动..."
+            # 各平台自动启动 Docker
+            case "$CURRENT_PLATFORM" in
+                "Windows")
+                    "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" 2>/dev/null || \
+                    "/c/Program Files/Docker/Docker/Docker Desktop.exe" 2>/dev/null || \
+                    powershell -Command "Start-Process 'Docker Desktop' -WindowStyle Hidden" 2>/dev/null || true
+                    ;;
+                "macOS")
+                    open -a Docker 2>/dev/null || true
+                    ;;
+                "Linux")
+                    systemctl start docker 2>/dev/null || service docker start 2>/dev/null || true
+                    ;;
+            esac
+            # 等待 Docker 就绪
+            for i in $(seq 1 30); do
+                sleep 5
+                if docker ps &> /dev/null; then
+                    success "Docker 守护进程已启动"
+                    docker --version
+                    return 0
+                fi
+                log "等待 Docker 启动 ($i/30)..."
+            done
+            error "Docker 自动启动失败，请检查 Docker 安装状态"
         fi
         return 0
     fi
