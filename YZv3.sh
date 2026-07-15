@@ -113,9 +113,19 @@ check_install_docker() {
             # 各平台自动启动 Docker
             case "$CURRENT_PLATFORM" in
                 "Windows")
-                    "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" 2>/dev/null || \
-                    "/c/Program Files/Docker/Docker/Docker Desktop.exe" 2>/dev/null || \
-                    powershell -Command "Start-Process 'Docker Desktop' -WindowStyle Hidden" 2>/dev/null || true
+                    # 方法1: dockerd 后台启动（无窗口）
+                    log "尝试 dockerd 后台启动..."
+                    dockerd &>/dev/null &
+                    # 方法2: 启动 Docker Desktop 服务
+                    if ! docker ps &> /dev/null; then
+                        log "尝试启动 Docker 服务..."
+                        powershell -Command "Start-Service com.docker.service -ErrorAction SilentlyContinue" 2>/dev/null || true
+                    fi
+                    # 方法3: 静默启动 Docker Desktop（隐藏窗口）
+                    if ! docker ps &> /dev/null; then
+                        log "尝试静默启动 Docker Desktop..."
+                        powershell -Command "Start-Process 'Docker Desktop' -WindowStyle Hidden" 2>/dev/null || true
+                    fi
                     ;;
                 "macOS")
                     open -a Docker 2>/dev/null || true
