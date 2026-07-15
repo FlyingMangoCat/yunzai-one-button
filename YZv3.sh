@@ -113,37 +113,33 @@ check_install_docker() {
             # 各平台自动启动 Docker
             case "$CURRENT_PLATFORM" in
                 "Windows")
-                    # 预配置 Docker Desktop 许可（跳过登录/许可窗口）
-                    local settings_path="$APPDATA/Docker/settings.json"
-                    if [ -f "$settings_path" ]; then
-                        # 设置许可接受版本，跳过首次启动的许可协议页面
-                        powershell -Command "& {
-                            \$s = Get-Content '$settings_path' -Raw | ConvertFrom-Json
-                            \$s.licenseTermsVersion = 2
-                            \$s | ConvertTo-Json -Depth 10 | Set-Content '$settings_path'
-                        }" 2>/dev/null || true
+                    # 确保 Docker 设置文件存在并标记许可已接受
+                    local settings_dir="${APPDATA:-$USERPROFILE/AppData/Roaming}/Docker"
+                    local settings_file="$settings_dir/settings.json"
+                    if [ ! -f "$settings_file" ]; then
+                        mkdir -p "$settings_dir" 2>/dev/null || true
                     fi
-                    # 方法1: 启动 Windows 服务（最可靠，无窗口）
+                    # 用 PowerShell 写入许可接受标记
+                    powershell -Command "
+                        \$dir = '$settings_dir'
+                        \$file = Join-Path \$dir 'settings.json'
+                        if (-not (Test-Path \$file)) {
+                            New-Item -Path \$dir -ItemType Directory -Force | Out-Null
+                            @{licenseTermsVersion = 2} | ConvertTo-Json | Set-Content \$file
+                        } else {
+                            \$s = Get-Content \$file -Raw | ConvertFrom-Json
+                            \$s.licenseTermsVersion = 2
+                            \$s | ConvertTo-Json -Depth 10 | Set-Content \$file
+                        }
+                    " 2>/dev/null || true
+                    # 启动 Docker 服务（无窗口）
                     log "启动 Docker 服务..."
                     powershell -Command "Start-Service com.docker.service -ErrorAction SilentlyContinue" 2>/dev/null || true
                     net start com.docker.service 2>/dev/null || true
-                    # 方法2: 后台引擎启动
+                    # 如果服务启动失败，后台启动引擎
                     if ! docker ps &> /dev/null; then
-                        for p in \
-                            "$PROGRAMFILES/Docker/Docker/resources/com.docker.backend.exe" \
-                            "/c/Program Files/Docker/Docker/resources/com.docker.backend.exe"
-                        do
-                            if [ -f "$p" ]; then
-                                log "后台启动 Docker 引擎..."
-                                "$p" -unattended &>/dev/null &
-                                break
-                            fi
-                        done
-                    fi
-                    # 方法3: 静默启动 Docker Desktop（隐藏窗口兜底）
-                    if ! docker ps &> /dev/null; then
-                        log "尝试静默启动 Docker Desktop..."
-                        powershell -Command "Start-Process 'Docker Desktop' -WindowStyle Hidden" 2>/dev/null || true
+                        log "后台启动 Docker 引擎..."
+                        "$PROGRAMFILES/Docker/Docker/resources/com.docker.backend.exe" -unattended &>/dev/null &
                     fi
                     ;;
                 "macOS")
