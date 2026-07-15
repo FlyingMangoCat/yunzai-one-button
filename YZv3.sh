@@ -113,20 +113,17 @@ check_install_docker() {
             # 各平台自动启动 Docker
             case "$CURRENT_PLATFORM" in
                 "Windows")
-                    # 尝试启动 Docker 服务
+                    # 启动 Docker 服务
                     log "启动 Docker 服务..."
                     net start com.docker.service 2>/dev/null || \
                     powershell -Command "Start-Service com.docker.service -ErrorAction SilentlyContinue" 2>/dev/null || true
-                    # 如果服务启动失败，尝试在 WSL2 中安装 Docker Engine
+                    # 如果服务启动失败，启动 Docker Desktop
                     if ! docker ps &> /dev/null; then
-                        if command -v wsl &> /dev/null; then
-                            log "Docker 服务未运行，尝试在 WSL2 中安装 Docker Engine..."
-                            # 检查 WSL 中是否已有 Docker
-                            wsl -e sh -c "command -v docker" 2>/dev/null && \
-                            wsl -e sudo service docker start 2>/dev/null && \
-                            export DOCKER_HOST=tcp://localhost:2375 && \
-                            log "WSL2 中 Docker 已启动" || \
-                            install_docker_wsl
+                        log "启动 Docker Desktop..."
+                        if [ -f "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" ]; then
+                            "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" &
+                        elif [ -f "/c/Program Files/Docker/Docker/Docker Desktop.exe" ]; then
+                            "/c/Program Files/Docker/Docker/Docker Desktop.exe" &
                         fi
                     fi
                     ;;
@@ -384,82 +381,6 @@ install_docker_windows() {
     fi
 
     error "Docker Desktop 自动安装失败，请手动安装后重试: https://www.docker.com/products/docker-desktop"
-}
-
-# ---------- Windows WSL2 Docker Engine 安装（完全绕过 Docker Desktop） ----------
-install_docker_wsl() {
-    log "在 WSL2 中安装 Docker Engine..."
-
-    # 检查 WSL 是否可用
-    if ! command -v wsl.exe &> /dev/null && ! command -v wsl &> /dev/null; then
-        log "安装 WSL 功能..."
-        powershell -Command "wsl --install" 2>/dev/null || true
-        warn "WSL 安装后需要重启电脑，请重启后重新运行脚本"
-        return 1
-    fi
-    local wsl_cmd="wsl.exe"
-    command -v wsl &> /dev/null && wsl_cmd="wsl"
-
-    # 检查 WSL 版本
-    local wsl_ver=$("$wsl_cmd" --status 2>/dev/null | grep "默认版本" | grep -o "2" || echo "0")
-    if [ "$wsl_ver" != "2" ]; then
-        log "设置 WSL 默认版本为 2..."
-        "$wsl_cmd" --set-default-version 2 2>/dev/null || true
-    fi
-
-    # 检查是否有已安装的 Linux 发行版
-    local distro=$("$wsl_cmd" -l -q 2>/dev/null | head -1 | tr -d '\r\n' | tr -d '\0' || echo "")
-    if [ -z "$distro" ] || [ "$distro" = "Windows" ]; then
-        log "需要安装 Ubuntu WSL 发行版..."
-        echo -e "${YELLOW}执行以下命令安装 Ubuntu：${NC}"
-        echo -e "  ${CYAN}wsl --install -d Ubuntu${NC}"
-        echo -e "${YELLOW}安装完成后会提示设置用户名和密码，设置完毕后重新运行此脚本${NC}"
-        "$wsl_cmd" --install -d Ubuntu 2>/dev/null || true
-        return 1
-    fi
-
-    # 在 WSL 中安装 Docker Engine
-    log "在 $distro 中安装 Docker Engine..."
-    "$wsl_cmd" -d "$distro" -e sh -c "
-        if ! command -v docker &>/dev/null; then
-            sudo apt-get update -qq &&
-            sudo apt-get install -y -qq ca-certificates curl &&
-            sudo install -m 0755 -d /etc/apt/keyrings &&
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg &&
-            echo 'deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable' | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null &&
-            sudo apt-get update -qq &&
-            sudo apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
-        fi
-    " 2>&1 | tail -5
-
-    # 配置 Docker 监听 TCP
-    log "配置 Docker 远程访问..."
-    "$wsl_cmd" -d "$distro" -e sh -c "
-        sudo mkdir -p /etc/systemd/system/docker.service.d &&
-        echo '[Service]
-ExecStart=
-ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375 --containerd=/run/containerd/containerd.sock' | sudo tee /etc/systemd/system/docker.service.d/override.conf > /dev/null &&
-        sudo systemctl daemon-reload
-    " 2>/dev/null
-
-    # 启动 Docker
-    log "启动 Docker..."
-    "$wsl_cmd" -d "$distro" -e sudo service docker start 2>/dev/null
-
-    # 设置 Windows 环境变量 DOCKER_HOST
-    export DOCKER_HOST=tcp://localhost:2375
-    powershell -Command "[System.Environment]::SetEnvironmentVariable('DOCKER_HOST','tcp://localhost:2375','User')" 2>/dev/null || true
-
-    # 验证
-    sleep 5
-    if docker ps &> /dev/null; then
-        success "WSL2 Docker Engine 安装并启动成功"
-        docker --version
-        return 0
-    fi
-
-    warn "Docker Engine 安装可能未完成"
-    return 1
 }
 
 # ---------- 容器辅助函数 ----------
