@@ -113,21 +113,26 @@ check_install_docker() {
             # 各平台自动启动 Docker
             case "$CURRENT_PLATFORM" in
                 "Windows")
-                    # 修复 Docker Desktop 后端崩溃：重置内部 WSL 组件
-                    log "修复 Docker Desktop 后端组件..."
-                    # 关闭所有 Docker 进程
+                    # 自动重装 Docker Desktop（修复后端崩溃）
+                    log "Docker 后端异常，自动重装..."
                     taskkill //f //im "Docker Desktop.exe" 2>/dev/null || true
                     taskkill //f //im "com.docker.backend.exe" 2>/dev/null || true
-                    # 重置 Docker 内部 WSL 发行版（Docker 会自动重建）
                     wsl --shutdown 2>/dev/null || true
-                    wsl --unregister docker-desktop 2>/dev/null || true
-                    wsl --unregister docker-desktop-data 2>/dev/null || true
-                    sleep 3
-                    # 启动 Docker Desktop
-                    if [ -f "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" ]; then
-                        "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" &
-                    elif [ -f "/c/Program Files/Docker/Docker/Docker Desktop.exe" ]; then
-                        "/c/Program Files/Docker/Docker/Docker Desktop.exe" &
+                    # 卸载 Docker Desktop
+                    powershell -Command "Get-Package 'Docker Desktop' -ErrorAction SilentlyContinue | Uninstall-Package -Force -ErrorAction SilentlyContinue" 2>/dev/null || true
+                    # 清理残留
+                    rm -rf "/c/Users/$USERNAME/AppData/Local/Docker" 2>/dev/null || true
+                    rm -rf "/c/Users/$USERNAME/AppData/Roaming/Docker" 2>/dev/null || true
+                    rm -rf "/c/ProgramData/DockerDesktop" 2>/dev/null || true
+                    sleep 5
+                    # 下载并安装最新版
+                    log "下载 Docker Desktop..."
+                    curl -fsSL -o /tmp/docker-installer.exe "https://desktop.docker.com/win/stable/Docker%20Desktop%20Installer.exe" 2>/dev/null
+                    if [ -f /tmp/docker-installer.exe ]; then
+                        log "静默安装 Docker Desktop（后台，不弹窗口）..."
+                        /tmp/docker-installer.exe install --quiet --accept-license --backend=wsl-2 --no-windows-containers 2>/dev/null || true
+                        rm -f /tmp/docker-installer.exe
+                        sleep 15
                     fi
                     ;;
                 "macOS")
