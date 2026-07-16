@@ -287,7 +287,7 @@ install_yunzai() {
     rm -f package-lock.json
     local ok=false
     for i in 1 2 3; do
-        if pnpm install 2>&1; then
+        if pnpm install 2>&1 || pnpm install --ignore-scripts 2>&1; then
             [ -d "node_modules" ] && ok=true && break
         fi
         log "依赖安装失败，重试 ($i/3)..."
