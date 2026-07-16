@@ -137,7 +137,7 @@ install_environment() {
             fi
             for pkg in "${pkgs[@]}"; do
                 for i in 1 2 3; do
-                    $pm_install "$pkg" 2>&1 | tail -3 && break
+                    $pm_install "$pkg" && break
                     log "安装 $pkg 失败，重试 ($i/3)..."
                     sleep 2
                 done
