@@ -283,7 +283,7 @@ install_yunzai() {
 
     # 4.7 安装依赖
     cd "$YUNZAI_DIR"
-    if [ -d "node_modules" ]; then
+    if [ -d "node_modules" ] && [ -f "node_modules/file-type/package.json" ]; then
         log "依赖已安装，跳过"
     else
         log "安装依赖..."
