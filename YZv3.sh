@@ -382,12 +382,23 @@ show_menu() {
     echo -e "                1. 安装芒果猫版云崽${NC}"
     echo -e "                2. 安装喵版云崽${NC}"
     echo -e "                3. 启动云崽${NC}"
-    echo -e "                4. 使用帮助${NC}"
-    echo -e "                5. 技术支持${NC}"
+    echo -e "                4. 进入云崽根目录${NC}"
+    echo -e "                5. 使用帮助${NC}"
+    echo -e "                6. 技术支持${NC}"
     if [ -d "$YUNZAI_DIR" ]; then
         echo -e "${GREEN}当前已安装云崽${NC}"
     fi
     echo -e "${YELLOW}----------------by 会飞的芒果猫------------------${NC}"
+}
+
+# ---------- 进入云崽根目录 ----------
+enter_yunzai_dir() {
+    log "用户选择: 进入云崽根目录"
+    if [ ! -d "$YUNZAI_DIR" ]; then
+        echo -e "${RED}未检测到安装目录 $YUNZAI_DIR，请先安装云崽${NC}"
+        return
+    fi
+    cd "$YUNZAI_DIR" && exec bash
 }
 
 # ---------- 帮助 ----------
@@ -435,8 +446,9 @@ main() {
             1) install_mangocat; read -p "按回车键返回菜单..." ;;
             2) install_miao; read -p "按回车键返回菜单..." ;;
             3) start_yunzai; read -p "按回车键返回菜单..." ;;
-            4) show_help; read -p "按回车键返回菜单..." ;;
-            5) show_support; read -p "按回车键返回菜单..." ;;
+            4) enter_yunzai_dir ;;
+            5) show_help; read -p "按回车键返回菜单..." ;;
+            6) show_support; read -p "按回车键返回菜单..." ;;
             *) warn "请输入正确选项"; sleep 1 ;;
         esac
     done
