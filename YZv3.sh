@@ -283,21 +283,17 @@ install_yunzai() {
 
     # 4.7 安装依赖
     cd "$YUNZAI_DIR"
-    if [ -d "node_modules" ] && [ -f "node_modules/file-type/package.json" ]; then
-        log "依赖已安装，跳过"
-    else
-        log "安装依赖..."
-        local ok=false
-        for reg in "https://registry.npmmirror.com" "https://registry.npmjs.org"; do
-            for i in 1 2 3; do
-                npm install --registry="$reg" 2>/dev/null && [ -d "node_modules" ] && ok=true && break 2
-                log "依赖安装失败，重试 ($i/3)..."
-                sleep 2
-            done
+    log "安装依赖..."
+    local ok=false
+    for reg in "https://registry.npmmirror.com" "https://registry.npmjs.org"; do
+        for i in 1 2 3; do
+            npm install --registry="$reg" 2>/dev/null && [ -d "node_modules" ] && ok=true && break 2
+            log "依赖安装失败，重试 ($i/3)..."
+            sleep 2
         done
-        $ok || error "依赖安装失败"
-        success "依赖安装完成"
-    fi
+    done
+    $ok || error "依赖安装失败"
+    success "依赖安装完成"
 
     # 4.8 安装插件
     log "安装插件..."
