@@ -350,6 +350,7 @@ install_yunzai() {
         "https://gitee.com/Ctrlcvs/xiaoyao-cvs-plugin.git"
     install_plugin "liulian-plugin" "https://github.com/FlyingMangoCat/liulian-plugin.git" \
         "https://gitee.com/huifeidemangguomao/liulian-plugin.git"
+    install_plugin "GamePush-Plugin" "https://gitee.com/rainbowwarmth/GamePush-Plugin.git"
 
     # 4.9 安装插件依赖
     log "安装插件依赖..."
