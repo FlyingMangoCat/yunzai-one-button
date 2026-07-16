@@ -96,7 +96,8 @@ install_environment() {
             # 安装 Node.js（非 apt 系需要手动装）
             if ! command -v node &>/dev/null; then
                 if command -v apt &>/dev/null; then
-                    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>/dev/null || true
+                    log "添加 Node.js 20.x 源..."
+                    curl -fsSL --connect-timeout 10 --max-time 30 https://deb.nodesource.com/setup_20.x 2>/dev/null | bash - 2>/dev/null || true
                 fi
             fi
             # 按包管理器设置安装命令和包名
