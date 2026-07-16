@@ -8,7 +8,7 @@
 # ---------- 配置 ----------
 VERSION="3.0.0"
 SUPPORT_GROUP="658720198"
-YUNZAI_DIR="yunzai-one-button-fmc"
+YUNZAI_DIR="$PWD/yunzai-one-button-fmc"
 CURRENT_PLATFORM=""
 CURRENT_OS=""
 
