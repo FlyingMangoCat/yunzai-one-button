@@ -105,7 +105,7 @@ install_environment() {
             local pkgs=()
             if command -v apt &>/dev/null; then
                 export DEBIAN_FRONTEND=noninteractive
-                pm_install="apt-get install -y -qq"
+                pm_install="apt-get install -y"
                 # Debian 包名是 chromium，Ubuntu 是 chromium-browser
                 local chromium_pkg="chromium-browser"
                 local fonts_pkg="fonts-wqy-microhei fonts-wqy-zenhei"
