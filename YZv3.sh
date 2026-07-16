@@ -135,11 +135,14 @@ install_environment() {
             fi
             for pkg in "${pkgs[@]}"; do
                 for i in 1 2 3; do
-                    $pm_install "$pkg" 2>/dev/null && break
+                    $pm_install "$pkg" 2>&1 | tail -3 && break
                     log "安装 $pkg 失败，重试 ($i/3)..."
                     sleep 2
                 done
             done
+            # 验证关键组件是否安装成功
+            command -v node &>/dev/null || error "Node.js 安装失败，请检查 apt 源和网络"
+            command -v git &>/dev/null || error "Git 安装失败"
             # 启动 Redis
             systemctl start redis-server 2>/dev/null || service redis-server start 2>/dev/null || redis-server --daemonize yes 2>/dev/null || true
             ;;
