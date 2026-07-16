@@ -282,9 +282,14 @@ install_yunzai() {
         success "代码克隆完成"
     fi
 
-    # 4.6 全局安装 pnpm
+    # 4.6 全局安装 pnpm（兼容 Node.js 版本）
     log "安装 pnpm..."
-    npm install -g pnpm 2>/dev/null || true
+    local node_ver=$(node -v | sed 's/v//' | cut -d. -f1)
+    if [ "$node_ver" -lt 22 ]; then
+        npm install -g pnpm@10 2>/dev/null || true
+    else
+        npm install -g pnpm 2>/dev/null || true
+    fi
 
     # 4.7 安装依赖
     cd "$YUNZAI_DIR"
