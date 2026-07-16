@@ -287,7 +287,7 @@ install_yunzai() {
     local ok=false
     for reg in "https://registry.npmmirror.com" "https://registry.npmjs.org" "https://registry.npm.taobao.org"; do
         for i in 1 2 3; do
-            if npm install --registry="$reg" --timeout=120000 2>&1 | tail -5; then
+            if npm install --registry="$reg" --timeout=120000 2>&1; then
                 [ -d "node_modules" ] && [ -f "node_modules/file-type/package.json" ] && ok=true && break 2
             fi
             log "依赖安装失败，重试 ($i/3)..."
