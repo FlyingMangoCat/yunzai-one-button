@@ -88,24 +88,48 @@ install_environment() {
 
         "Linux")
             log "Linux 环境安装..."
+            # 检测发行版
+            local distro=""
+            if [ -f /etc/os-release ]; then
+                distro=$(grep -oP '^ID=\K.*' /etc/os-release 2>/dev/null | tr -d '"' || echo "")
+            fi
+            # 安装 Node.js（非 apt 系需要手动装）
+            if ! command -v node &>/dev/null; then
+                if command -v apt &>/dev/null; then
+                    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>/dev/null || true
+                fi
+            fi
+            # 按包管理器设置安装命令和包名
             local pm_install=""
             local pkgs=()
             if command -v apt &>/dev/null; then
-                curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>/dev/null || true
                 pm_install="apt-get install -y -qq"
                 # Debian 包名是 chromium，Ubuntu 是 chromium-browser
                 local chromium_pkg="chromium-browser"
-                if [ -f /etc/os-release ] && grep -qi "debian" /etc/os-release 2>/dev/null; then
-                    chromium_pkg="chromium"
-                fi
-                pkgs=(nodejs git redis-server "$chromium_pkg" fonts-wqy-microhei fonts-wqy-zenhei ffmpeg python3 python3-pip)
-            elif command -v yum &>/dev/null; then
-                curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - 2>/dev/null || true
-                pm_install="yum install -y"
-                pkgs=(nodejs git redis chromium ffmpeg python3)
+                local fonts_pkg="fonts-wqy-microhei fonts-wqy-zenhei"
+                case "$distro" in
+                    debian) chromium_pkg="chromium" ;;
+                    ubuntu|mint|pop) chromium_pkg="chromium-browser" ;;
+                esac
+                pkgs=(nodejs git redis-server "$chromium_pkg" $fonts_pkg ffmpeg python3 python3-pip)
             elif command -v dnf &>/dev/null; then
                 pm_install="dnf install -y"
+                case "$distro" in
+                    fedora) pkgs=(nodejs git redis chromium ffmpeg python3 python3-pip) ;;
+                    rhel|centos|rocky|alma) pkgs=(nodejs git redis chromium ffmpeg python3 python3-pip) ;;
+                esac
+            elif command -v yum &>/dev/null; then
+                pm_install="yum install -y"
                 pkgs=(nodejs git redis chromium ffmpeg python3)
+            elif command -v pacman &>/dev/null; then
+                pm_install="pacman -S --noconfirm"
+                pkgs=(nodejs git redis chromium wqy-microhei ffmpeg python python-pip)
+            elif command -v zypper &>/dev/null; then
+                pm_install="zypper install -y"
+                pkgs=(nodejs git redis chromium ffmpeg python3 python3-pip)
+            elif command -v apk &>/dev/null; then
+                pm_install="apk add"
+                pkgs=(nodejs git redis chromium ffmpeg python3 py3-pip)
             else
                 error "不支持的 Linux 包管理器"
             fi
