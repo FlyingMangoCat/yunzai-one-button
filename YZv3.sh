@@ -438,11 +438,21 @@ show_menu() {
 # ---------- 进入云崽根目录 ----------
 enter_yunzai_dir() {
     log "用户选择: 进入云崽根目录"
-    if [ ! -d "$YUNZAI_DIR" ]; then
-        echo -e "${RED}未检测到安装目录 $YUNZAI_DIR，请先安装云崽${NC}"
+    local target="$YUNZAI_DIR"
+    # 查找云崽根目录（总目录下的子目录，含 package.json）
+    if [ -d "$YUNZAI_DIR" ]; then
+        for d in "$YUNZAI_DIR"/*/; do
+            if [ -f "$d/package.json" ]; then
+                target="$d"
+                break
+            fi
+        done
+    fi
+    if [ ! -d "$target" ]; then
+        echo -e "${RED}未检测到安装目录，请先安装云崽${NC}"
         return
     fi
-    cd "$YUNZAI_DIR" && exec bash
+    cd "$target" && exec bash
 }
 
 # ---------- 帮助 ----------
