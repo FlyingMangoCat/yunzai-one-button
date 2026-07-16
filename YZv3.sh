@@ -279,24 +279,22 @@ install_yunzai() {
 
     # 4.6 全局安装 pnpm
     log "安装 pnpm..."
-    npm install -g pnpm 2>/dev/null || npm install -g cnpm --registry=https://registry.npmmirror.com 2>/dev/null || true
+    npm install -g pnpm 2>/dev/null || true
 
     # 4.7 安装依赖
     cd "$YUNZAI_DIR"
     log "安装依赖..."
-    # 删除可能冲突的 lock 文件（npm 11.x 有 bug 导致 Invalid Version）
     rm -f package-lock.json
     local ok=false
-    for reg in "https://registry.npmmirror.com" "https://registry.npmjs.org" "https://registry.npm.taobao.org"; do
-        for i in 1 2 3; do
-            if npm install --registry="$reg" 2>&1; then
-                [ -d "node_modules" ] && ok=true && break 2
-            fi
-            log "依赖安装失败，重试 ($i/3)..."
-            sleep 3
-        done
+    for i in 1 2 3; do
+        if pnpm install 2>&1; then
+            [ -d "node_modules" ] && ok=true && break
+        fi
+        log "依赖安装失败，重试 ($i/3)..."
+        sleep 3
     done
     $ok || error "依赖安装失败，请检查网络连接后重试"
+    success "依赖安装完成"
 
     # 4.8 安装插件
     log "安装插件..."
@@ -310,7 +308,7 @@ install_yunzai() {
 
     # 4.9 安装插件依赖
     log "安装插件依赖..."
-    pnpm install -P 2>/dev/null || pnpm install -P --ignore-scripts 2>/dev/null || true
+    pnpm install 2>/dev/null || pnpm install --ignore-scripts 2>/dev/null || true
     if [ -d "node_modules" ]; then
         success "插件依赖安装完成"
     else
