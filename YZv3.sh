@@ -350,7 +350,6 @@ install_yunzai() {
         "https://gitee.com/Ctrlcvs/xiaoyao-cvs-plugin.git"
     install_plugin "liulian-plugin" "https://github.com/FlyingMangoCat/liulian-plugin.git" \
         "https://gitee.com/huifeidemangguomao/liulian-plugin.git"
-    install_plugin "GamePush-Plugin" "https://gitee.com/rainbowwarmth/GamePush-Plugin.git"
 
     # 4.9 安装插件依赖
     log "安装插件依赖..."
@@ -473,7 +472,6 @@ init_script() {
     echo "             Yunzai一键安装脚本  "
     echo "                                        v$VERSION  "
     echo "==================================================="
-    echo -e "${NC}"
     echo -e "QQ群: ${GREEN}$SUPPORT_GROUP${NC}"
     echo -e "${BLUE}===================================================${NC}"
     echo
