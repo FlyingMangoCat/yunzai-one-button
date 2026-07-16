@@ -284,6 +284,8 @@ install_yunzai() {
     # 4.7 安装依赖
     cd "$YUNZAI_DIR"
     log "安装依赖..."
+    # 删除可能冲突的 lock 文件（npm 11.x 有 bug 导致 Invalid Version）
+    rm -f package-lock.json
     local ok=false
     for reg in "https://registry.npmmirror.com" "https://registry.npmjs.org" "https://registry.npm.taobao.org"; do
         for i in 1 2 3; do
