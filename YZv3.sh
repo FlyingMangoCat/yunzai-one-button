@@ -93,7 +93,12 @@ install_environment() {
             if command -v apt &>/dev/null; then
                 curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>/dev/null || true
                 pm_install="apt-get install -y -qq"
-                pkgs=(nodejs git redis-server chromium-browser fonts-wqy-microhei fonts-wqy-zenhei ffmpeg python3 python3-pip)
+                # Debian 包名是 chromium，Ubuntu 是 chromium-browser
+                local chromium_pkg="chromium-browser"
+                if [ -f /etc/os-release ] && grep -qi "debian" /etc/os-release 2>/dev/null; then
+                    chromium_pkg="chromium"
+                fi
+                pkgs=(nodejs git redis-server "$chromium_pkg" fonts-wqy-microhei fonts-wqy-zenhei ffmpeg python3 python3-pip)
             elif command -v yum &>/dev/null; then
                 curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - 2>/dev/null || true
                 pm_install="yum install -y"
