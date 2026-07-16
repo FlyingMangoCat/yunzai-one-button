@@ -285,15 +285,14 @@ install_yunzai() {
     cd "$YUNZAI_DIR"
     log "安装依赖..."
     local ok=false
-    for reg in "https://registry.npmmirror.com" "https://registry.npmjs.org"; do
+    for reg in "https://registry.npmmirror.com" "https://registry.npmjs.org" "https://registry.npm.taobao.org"; do
         for i in 1 2 3; do
-            npm install --registry="$reg" 2>/dev/null && [ -d "node_modules" ] && ok=true && break 2
+            npm install --registry="$reg" --timeout=120000 2>/dev/null && [ -d "node_modules" ] && [ -f "node_modules/file-type/package.json" ] && ok=true && break 2
             log "依赖安装失败，重试 ($i/3)..."
-            sleep 2
+            sleep 3
         done
     done
-    $ok || error "依赖安装失败"
-    success "依赖安装完成"
+    $ok || error "依赖安装失败，请检查网络连接后重试"
 
     # 4.8 安装插件
     log "安装插件..."
