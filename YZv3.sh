@@ -91,7 +91,7 @@ install_environment() {
             # 检测发行版
             local distro=""
             if [ -f /etc/os-release ]; then
-                distro=$(grep -oP '^ID=\K.*' /etc/os-release 2>/dev/null | tr -d '"' || echo "")
+                distro=$(grep -i "^id=" /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
             fi
             # 安装 Node.js（非 apt 系需要手动装）
             if ! command -v node &>/dev/null; then
@@ -103,7 +103,7 @@ install_environment() {
             local pm_install=""
             local pkgs=()
             if command -v apt &>/dev/null; then
-                pm_install="apt-get install -y -qq"
+                pm_install="DEBIAN_FRONTEND=noninteractive apt-get install -y -qq"
                 # Debian 包名是 chromium，Ubuntu 是 chromium-browser
                 local chromium_pkg="chromium-browser"
                 local fonts_pkg="fonts-wqy-microhei fonts-wqy-zenhei"
