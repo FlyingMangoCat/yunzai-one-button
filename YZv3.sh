@@ -245,8 +245,10 @@ install_yunzai() {
     mkdir -p "$YUNZAI_DIR" || error "创建目录 $YUNZAI_DIR 失败"
 
     # 4.5 克隆代码（含重试+镜像）
-    if [ -f "$YUNZAI_DIR/package.json" ]; then
+    local repo_name=$(basename "$repo_url" .git)
+    if [ -d "$YUNZAI_DIR/$repo_name" ] && [ -f "$YUNZAI_DIR/$repo_name/package.json" ]; then
         log "云崽代码已存在，跳过克隆"
+        YUNZAI_DIR="$YUNZAI_DIR/$repo_name"
     else
         log "克隆 $version_name 代码..."
         local clone_urls=("$repo_url")
@@ -265,15 +267,18 @@ install_yunzai() {
             clone_urls+=("https://ghproxy.com/https://github.com/$rp" "https://hub.fastgit.xyz/$rp")
         fi
         local ok=false
+        local repo_name=$(basename "$repo_url" .git)
         for url in "${clone_urls[@]}"; do
             for i in 1 2 3; do
-                git clone --depth=1 "$url" "$YUNZAI_DIR" 2>/dev/null && \
-                [ -f "$YUNZAI_DIR/package.json" ] && ok=true && break 2
+                git clone --depth=1 "$url" "$YUNZAI_DIR/$repo_name" 2>/dev/null && \
+                [ -f "$YUNZAI_DIR/$repo_name/package.json" ] && ok=true && break 2
                 log "克隆失败，重试 ($i/3)..."
                 sleep 2
             done
         done
         $ok || error "代码克隆失败，请检查网络"
+        # 更新 YUNZAI_DIR 为云崽根目录
+        YUNZAI_DIR="$YUNZAI_DIR/$repo_name"
         success "代码克隆完成"
     fi
 
