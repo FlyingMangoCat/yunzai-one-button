@@ -57,9 +57,9 @@ get_permissions() {
 # ---------- 2. 检测平台 ----------
 detect_platform() {
     log "检测当前平台..."
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    if [[ "$OSTYPE" == "linux-gnu"* || "$OSTYPE" == "linux-android"* ]]; then
         CURRENT_OS="Linux"
-        if [ -d "$PREFIX" ]; then CURRENT_PLATFORM="Termux"
+        if [ -n "$PREFIX" ] && [ -d "$PREFIX" ]; then CURRENT_PLATFORM="Termux"
         else CURRENT_PLATFORM="Linux"; fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         CURRENT_OS="macOS"; CURRENT_PLATFORM="macOS"
