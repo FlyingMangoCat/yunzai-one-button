@@ -82,6 +82,9 @@ install_environment() {
             pkg update -y && pkg upgrade -y
             pkg install -y nodejs-lts git redis chromium wget curl python3 ffmpeg \
                 fonts-wqy-microhei fonts-wqy-zenhei 2>/dev/null
+            # 验证关键组件是否安装成功
+            command -v node &>/dev/null || error "Node.js 安装失败，请检查 pkg 源和网络"
+            command -v git &>/dev/null || error "Git 安装失败"
             # 启动 Redis
             redis-server --daemonize yes 2>/dev/null || true
             ;;
@@ -161,6 +164,9 @@ install_environment() {
                     sleep 2
                 done
             done
+            # 验证关键组件是否安装成功
+            command -v node &>/dev/null || error "Node.js 安装失败，请检查 Homebrew 安装"
+            command -v git &>/dev/null || error "Git 安装失败"
             brew services start redis 2>/dev/null || true
             ;;
 
@@ -182,6 +188,8 @@ install_environment() {
             # npm
             command -v npm &>/dev/null || error "npm 未安装"
             success "npm $(npm --version) 已就绪"
+            # git
+            command -v git &>/dev/null || error "Git 安装失败"
             # Redis（验证安装，winget 优先）
             local redis_ok=false
             for i in 1 2 3; do
