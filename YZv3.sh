@@ -340,12 +340,24 @@ install_yunzai() {
 
     # 4.6 全局安装 pnpm（兼容 Node.js 版本）
     log "安装 pnpm..."
-    local node_ver=$(node -v | sed 's/v//' | cut -d. -f1)
-    if [ "$node_ver" -lt 22 ]; then
-        npm install -g pnpm@10 2>/dev/null || true
-    else
-        npm install -g pnpm 2>/dev/null || true
+    # 国内网络优先使用 npmmirror 镜像源，避免官方源超时
+    if npm config get registry 2>/dev/null | grep -q "registry.npmjs.org"; then
+        npm config set registry https://registry.npmmirror.com 2>/dev/null || true
+        log "已切换 npm 源为 npmmirror 镜像"
     fi
+    local node_ver=$(node -v | sed 's/v//' | cut -d. -f1)
+    if ! command -v pnpm &>/dev/null; then
+        local pnpm_ver="pnpm@10"
+        [ "$node_ver" -ge 22 ] && pnpm_ver="pnpm"
+        local ok=false
+        for i in 1 2 3; do
+            npm install -g "$pnpm_ver" && ok=true && break
+            log "pnpm 安装失败，重试 ($i/3)..."
+            sleep 2
+        done
+        $ok || error "pnpm 安装失败，请检查网络或 npm 源（npm 报错见上方输出）"
+    fi
+    command -v pnpm &>/dev/null || error "pnpm 未安装成功，请检查 npm 全局 bin 目录"
 
     # 4.7 安装依赖
     cd "$YUNZAI_DIR"
