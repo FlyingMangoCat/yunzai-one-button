@@ -79,12 +79,26 @@ install_environment() {
     case "$CURRENT_PLATFORM" in
         "Termux")
             log "Termux 环境安装..."
-            pkg update -y && pkg upgrade -y
-            pkg install -y nodejs-lts git redis chromium wget curl python3 ffmpeg \
-                fonts-wqy-microhei fonts-wqy-zenhei 2>/dev/null
+            # 更新源（失败不阻断，错误可见）
+            pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
+            pkg upgrade -y 2>&1 | tee -a "$LOG_FILE" || true
+            # 核心依赖逐个安装并重试，失败原因直接可见
+            local core_pkgs=(nodejs-lts git redis wget curl python3 ffmpeg fonts-wqy-microhei fonts-wqy-zenhei)
+            for pkg in "${core_pkgs[@]}"; do
+                for i in 1 2 3; do
+                    pkg install -y "$pkg" 2>&1 | tee -a "$LOG_FILE"
+                    [ "${PIPESTATUS[0]}" -eq 0 ] && break
+                    log "安装 $pkg 失败，重试 ($i/3)..."
+                    sleep 2
+                done
+            done
             # 验证关键组件是否安装成功
-            command -v node &>/dev/null || error "Node.js 安装失败，请检查 pkg 源和网络"
+            command -v node &>/dev/null || error "Node.js 安装失败，请检查 pkg 源和网络（详见日志 $LOG_FILE）"
             command -v git &>/dev/null || error "Git 安装失败"
+            # Chromium（体积大易失败，不阻塞主流程）
+            if ! command -v chromium &>/dev/null; then
+                pkg install -y chromium 2>&1 | tee -a "$LOG_FILE" || warn "Chromium 安装失败，可稍后手动执行: pkg install -y chromium"
+            fi
             # 启动 Redis
             redis-server --daemonize yes 2>/dev/null || true
             ;;
