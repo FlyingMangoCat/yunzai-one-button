@@ -349,6 +349,11 @@ install_yunzai() {
     if ! command -v pnpm &>/dev/null; then
         local pnpm_ver="pnpm@10"
         [ "$node_ver" -ge 22 ] && pnpm_ver="pnpm"
+        # Termux/Android 文件系统不支持新版 pnpm 的 lock_shared()，固定用 pnpm@8
+        if [ -d "/data/data/com.termux" ]; then
+            pnpm_ver="pnpm@8"
+            log "检测到 Termux 环境，使用 pnpm@8"
+        fi
         local ok=false
         for i in 1 2 3; do
             npm install -g "$pnpm_ver" && ok=true && break
