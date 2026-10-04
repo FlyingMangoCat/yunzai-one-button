@@ -546,6 +546,21 @@ start_yunzai() {
         sleep 1
         redis-cli ping 2>/dev/null | grep -q PONG && success "Redis 已启动" || warn "Redis 启动失败，云崽可能无法连接数据库"
     fi
+    # sqlite3 自检: 编译产物缺失/失效时自动重编译（此前 Termux 缺编译工具链导致编译失败，
+    # 或 Node 升级后 ABI 变化使旧产物失效，运行期才报 Please install sqlite3 package manually）
+    if [ -d "$target/node_modules" ] && ! (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1); then
+        log "检测到 sqlite3 模块不可用，自动重编译..."
+        if command -v pnpm &>/dev/null; then
+            (cd "$target" && pnpm rebuild sqlite3) 2>&1 | tee -a "$LOG_FILE"
+            if (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1); then
+                success "sqlite3 重编译成功"
+            else
+                warn "sqlite3 仍不可用，请手动执行: pkg install python make clang binutils -y 后重新选择启动"
+            fi
+        else
+            warn "未检测到 pnpm，无法自动重编译 sqlite3，请先通过菜单 1/2 安装依赖"
+        fi
+    fi
     echo -e "${GREEN}启动云崽...${NC}"
     cd "$target" && node app
 }
