@@ -467,7 +467,10 @@ show_napcat_token() {
     case "$CURRENT_PLATFORM" in
         "Termux")
             # 官方 Termux 脚本装在 proot-distro 容器（别名 napcat）内
-            candidates=("$PREFIX/var/lib/proot-distro/installed-rootfs/napcat/root/Napcat/opt/QQ/resources/app/app_launcher/napcat/config/webui.json")
+            # 新版布局 containers/<名>/rootfs/...，旧版 installed-rootfs/<名>/...
+            local nc_root="$PREFIX/var/lib/proot-distro"
+            local nc_rel="root/Napcat/opt/QQ/resources/app/app_launcher/napcat/config/webui.json"
+            candidates=("$nc_root/containers/napcat/rootfs/$nc_rel" "$nc_root/installed-rootfs/napcat/$nc_rel")
             ;;
         "Linux")
             # 官方 Shell 直装默认在 /opt/QQ 下
@@ -487,7 +490,7 @@ show_napcat_token() {
     if [ -z "$found" ]; then
         log "固定位置未找到 webui.json，尝试搜索（可能较慢）..."
         case "$CURRENT_PLATFORM" in
-            "Termux") found=$(find "$PREFIX/var/lib/proot-distro/installed-rootfs" -maxdepth 10 -name webui.json -path "*napcat*" 2>/dev/null | head -n 1) ;;
+            "Termux") found=$(find "$PREFIX/var/lib/proot-distro" -maxdepth 12 -name webui.json -path "*napcat*" 2>/dev/null | head -n 1) ;;
             "Linux")  found=$(find /opt "$HOME" -maxdepth 8 -path "*napcat*/config/webui.json" 2>/dev/null | head -n 1) ;;
         esac
     fi
@@ -625,10 +628,11 @@ install_napcat() {
             command -v proot-distro &>/dev/null || error "proot-distro 安装失败，请手动执行: pkg install proot-distro screen"
             command -v screen &>/dev/null || error "screen 安装失败，请手动执行: pkg install screen"
 
-            # 2. 安装 debian 容器（GitHub 下载镜像易被重置，失败自动清理重试）
-            # 以 installed-rootfs/napcat 目录是否存在为准（不依赖 list 输出格式，新旧版 proot-distro 通用）
-            local napcat_rootfs="$PREFIX/var/lib/proot-distro/installed-rootfs/napcat"
-            if [ ! -d "$napcat_rootfs" ]; then
+            # 2. 安装 debian 容器（镜像下载易受网络波动影响，失败自动清理重试）
+            # 容器目录新版在 containers/<名>/rootfs，旧版在 installed-rootfs/<名>，两版都判
+            local napcat_rootfs_new="$PREFIX/var/lib/proot-distro/containers/napcat"
+            local napcat_rootfs_legacy="$PREFIX/var/lib/proot-distro/installed-rootfs/napcat"
+            if [ ! -d "$napcat_rootfs_new" ] && [ ! -d "$napcat_rootfs_legacy" ]; then
                 local container_ok=false
                 # 第 1 次走官方 Docker Hub 源；失败后改用实测可用的国内镜像源兜底
                 local image_refs=("debian" "dockerproxy.net/library/debian")
@@ -660,7 +664,11 @@ install_napcat() {
                 return 1
             fi
             success "NapCat 安装完成"
-            echo -e "容器数据位置: ${GREEN}$PREFIX/var/lib/proot-distro/installed-rootfs/napcat${NC}"
+            if [ -d "$napcat_rootfs_new" ]; then
+                echo -e "容器数据位置: ${GREEN}$napcat_rootfs_new${NC}"
+            else
+                echo -e "容器数据位置: ${GREEN}$napcat_rootfs_legacy${NC}"
+            fi
             show_napcat_ws_guide
             start_napcat_and_show_token
             ;;
