@@ -263,9 +263,9 @@ install_environment() {
             # Node.js（验证安装）
             if ! command -v node &>/dev/null; then
                 log "安装 Node.js..."
-                curl -fsSL -o /tmp/node-installer.msi "https://nodejs.org/dist/v20.19.1/node-v20.19.1-x64.msi" 2>/dev/null
-                if [ -f /tmp/node-installer.msi ]; then
-                    powershell -Command "Start-Process msiexec -ArgumentList '/i /tmp/node-installer.msi /quiet /norestart' -Wait -NoNewWindow" 2>/dev/null || true
+                curl -fsSL --connect-timeout 10 --max-time 120 -o /tmp/node-installer.msi "https://nodejs.org/dist/v20.19.1/node-v20.19.1-x64.msi" 2>/dev/null
+                if [ -f /tmp/node-installer.msi ] && [ "$(head -c 2 /tmp/node-installer.msi 2>/dev/null)" = "$(printf '\xd0\xcf')" ]; then
+                    powershell -Command "Start-Process msiexec -ArgumentList '/i \"$(cygpath -w /tmp/node-installer.msi)\" /quiet /norestart' -Wait -NoNewWindow" 2>/dev/null || true
                     rm -f /tmp/node-installer.msi
                     sleep 5
                 fi
@@ -330,11 +330,12 @@ install_environment() {
                     fi
                     rm -f "$downloaded"
                     sleep 2
-                    # zip 可能带一层顶层目录，直接搜两级目录定位
-                    for p in "/c/Program Files/Redis/redis-server.exe" \
-                             $(find "/c/Program Files/Redis" -mindepth 2 -maxdepth 2 -name redis-server.exe 2>/dev/null); do
+                    # zip 可能带一层顶层目录，find 逐行读取定位（路径含空格安全）
+                    while IFS= read -r p; do
                         [ -f "$p" ] && redis_exe="$p" && break
-                    done
+                    done <<EOF
+$(ls "/c/Program Files/Redis/redis-server.exe" 2>/dev/null; find "/c/Program Files/Redis" -mindepth 2 -maxdepth 2 -name redis-server.exe 2>/dev/null)
+EOF
                     if [ -n "$redis_exe" ]; then
                         export PATH="$PATH:$(dirname "$redis_exe")"
                         "$redis_exe" --daemonize yes 2>/dev/null || true
