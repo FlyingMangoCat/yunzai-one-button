@@ -145,6 +145,14 @@ install_environment() {
                     && success "中文字体 SimHei 安装完成" \
                     || warn "中文字体下载失败，渲染图片中文可能乱码，可稍后重试本项"
             fi
+            # node-gyp 在 Android 上编译原生模块(sqlite3/better-sqlite3 等)会因缺
+            # android_ndk_path 变量报 gyp configure error（termux-packages#19522/#20717
+            # 官方确认的变通），写入 gyp 全局配置后所有后续编译永久生效
+            if [ ! -f "$HOME/.gyp/include.gypi" ]; then
+                mkdir -p "$HOME/.gyp"
+                echo "{'variables': {'android_ndk_path': ''}}" > "$HOME/.gyp/include.gypi"
+                success "已写入 gyp 全局配置，原生模块（sqlite3 等）可正常编译"
+            fi
             # 启动 Redis
             redis-server --daemonize yes 2>/dev/null || true
             ;;
@@ -156,11 +164,31 @@ install_environment() {
             if [ -f /etc/os-release ]; then
                 distro=$(grep -i "^id=" /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
             fi
-            # 安装 Node.js（非 apt 系需要手动装）
+            # 安装 Node.js（非 apt 系需要手动装；apt 系优先 nodesource 源，
+            # 不可达时用 npmmirror 二进制直装兜底）
             if ! command -v node &>/dev/null; then
                 if command -v apt &>/dev/null; then
                     log "添加 Node.js 20.x 源..."
                     curl -fsSL --connect-timeout 10 --max-time 30 https://deb.nodesource.com/setup_20.x 2>/dev/null | bash - 2>/dev/null || true
+                fi
+                if ! command -v node &>/dev/null; then
+                    local node_arch=""
+                    case "$(uname -m)" in
+                        x86_64) node_arch="x64" ;;
+                        aarch64|arm64) node_arch="arm64" ;;
+                    esac
+                    if [ -n "$node_arch" ]; then
+                        log "nodesource 不可用，从 npmmirror 直装 Node.js 20.x..."
+                        curl -fsSL --connect-timeout 10 --max-time 120 \
+                            "https://registry.npmmirror.com/-/binary/node/v20.19.1/node-v20.19.1-linux-${node_arch}.tar.xz" \
+                            -o /tmp/node.tar.xz 2>/dev/null \
+                        && mkdir -p /usr/local/lib/nodejs \
+                        && tar -xJf /tmp/node.tar.xz -C /usr/local/lib/nodejs \
+                        && ln -sf "/usr/local/lib/nodejs/node-v20.19.1-linux-${node_arch}/bin/node" /usr/local/bin/node \
+                        && ln -sf "/usr/local/lib/nodejs/node-v20.19.1-linux-${node_arch}/bin/npm" /usr/local/bin/npm \
+                        && ln -sf "/usr/local/lib/nodejs/node-v20.19.1-linux-${node_arch}/bin/npx" /usr/local/bin/npx \
+                        && rm -f /tmp/node.tar.xz
+                    fi
                 fi
             fi
             # 按包管理器设置安装命令和包名
@@ -284,20 +312,27 @@ install_environment() {
                         redis-cli ping 2>/dev/null && redis_ok=true && break
                     fi
                 fi
-                # MSI 下载安装
+                # zip 下载解压安装（redis-windows 项目现以 zip 分发，无 MSI）
                 local redis_urls=(
-                    "https://github.com/redis-windows/redis-windows/releases/latest/download/Redis-x64-msi.msi"
-                    "https://github.com/redis-windows/redis-windows/releases/download/3.2.100/Redis-x64-3.2.100.msi"
+                    "https://github.com/redis-windows/redis-windows/releases/latest/download/Redis-8.10.2-Windows-x64-cygwin.zip"
                 )
                 local downloaded=""
                 for url in "${redis_urls[@]}"; do
-                    curl -fsSL -o /tmp/redis.msi "$url" 2>/dev/null && downloaded="/tmp/redis.msi" && break
+                    curl -fsSL --connect-timeout 10 --max-time 180 -o /tmp/redis.zip "$url" 2>/dev/null && downloaded="/tmp/redis.zip" && break
                 done
                 if [ -n "$downloaded" ] && [ -f "$downloaded" ]; then
-                    powershell -Command "Start-Process msiexec -ArgumentList '/i $downloaded /quiet /norestart' -Wait -NoNewWindow" 2>/dev/null || true
+                    # 校验 zip 魔数（PK），防 404 页面/HTML 被当包解压
+                    if [ "$(head -c 2 "$downloaded" 2>/dev/null)" = "PK" ]; then
+                        mkdir -p "/c/Program Files/Redis"
+                        powershell -Command "Expand-Archive -Force -Path '$(cygpath -w "$downloaded")' -DestinationPath 'C:\Program Files\Redis'" 2>/dev/null || true
+                    else
+                        warn "下载的 Redis 包无效（非 zip），跳过"
+                    fi
                     rm -f "$downloaded"
-                    sleep 5
-                    for p in "/c/Program Files/Redis/redis-server.exe" "$PROGRAMFILES/Redis/redis-server.exe"; do
+                    sleep 2
+                    # zip 可能带一层顶层目录，两种布局都找
+                    for p in "/c/Program Files/Redis/redis-server.exe" \
+                             "/c/Program Files/Redis"/**/redis-server.exe; do
                         [ -f "$p" ] && redis_exe="$p" && break
                     done
                     if [ -n "$redis_exe" ]; then
@@ -437,7 +472,7 @@ install_yunzai() {
         "https://gitcode.com/TimeRainStarSky/miao-plugin.git" \
         "https://gitee.com/huifeidemangguomao/miao-plugin.git"
     install_plugin "xiaoyao-cvs-plugin" "https://github.com/Ctrlcvs/xiaoyao-cvs-plugin.git" \
-        "https://gitee.com/Ctrlcvs/xiaoyao-cvs-plugin.git"
+        "https://gitcode.com/TimeRainStarSky/xiaoyao-cvs-plugin.git"
     install_plugin "liulian-plugin" "https://github.com/FlyingMangoCat/liulian-plugin.git" \
         "https://gitee.com/huifeidemangguomao/liulian-plugin.git"
 
@@ -561,6 +596,8 @@ start_yunzai() {
             warn "未检测到 pnpm，无法自动重编译 sqlite3，请先通过菜单 1/2 安装依赖"
         fi
     fi
+    # 联动拉起 NapCat（未安装/未配置仅提示，不阻断云崽启动）
+    start_napcat_and_show_token auto || true
     echo -e "${GREEN}启动云崽...${NC}"
     cd "$target" && node app
 }
@@ -621,21 +658,53 @@ show_napcat_token() {
 }
 
 # ---------- 启动 NapCat（后台）并抓取 token ----------
+# 模式: 空=安装流程(询问+显示token) direct=菜单(不询问+显示token)
+#       auto=启动云崽联动(不询问不显示token; 未安装仅提示不阻断)
 start_napcat_and_show_token() {
-    echo -e "${YELLOW}是否现在启动 NapCat? 启动后才能生成 WebUI token${NC}"
-    read -p "立即启动 NapCat? (y/回车): " start_now
-    [ "$start_now" != "y" ] && return 0
+    local mode="$1"
+    if [ "$mode" != "direct" ] && [ "$mode" != "auto" ]; then
+        echo -e "${YELLOW}是否现在启动 NapCat? 启动后才能生成 WebUI token${NC}"
+        read -p "立即启动 NapCat? (y/回车): " start_now
+        [ "$start_now" != "y" ] && return 0
+    fi
 
     detect_platform
     case "$CURRENT_PLATFORM" in
         "Termux")
             # 官方 Termux 方式: proot-distro 容器 + screen 后台（与官方脚本输出一致）
-            if ! command -v proot-distro &>/dev/null; then
-                warn "未找到 proot-distro，请按安装脚本输出的说明手动启动"
+            if ! command -v proot-distro &>/dev/null || ! command -v screen &>/dev/null; then
+                if [ "$mode" = "auto" ]; then
+                    warn "未安装 proot-distro/screen，跳过自动拉起 NapCat（菜单 5 可安装）"
+                else
+                    warn "未找到 proot-distro/screen，请按安装脚本输出的说明手动启动"
+                fi
                 return 1
             fi
+            # 定位容器 root 家目录（rootfs 里真有 /bin/sh 才算装好）
+            local pd_root="$PREFIX/var/lib/proot-distro"
+            local container_root=""
+            if [ -e "$pd_root/containers/napcat/rootfs/bin/sh" ]; then
+                container_root="$pd_root/containers/napcat/rootfs/root"
+            elif [ -e "$pd_root/installed-rootfs/napcat/bin/sh" ]; then
+                container_root="$pd_root/installed-rootfs/napcat/root"
+            fi
+            if [ -z "$container_root" ]; then
+                if [ "$mode" = "auto" ]; then
+                    warn "未检测到已安装的 NapCat，跳过自动拉起（菜单 5 可安装）"
+                else
+                    warn "未检测到已安装的 NapCat 容器，请先通过菜单 5 安装"
+                fi
+                return 1
+            fi
+            # 已有同名后台会话则不再重复启动
+            if screen -ls 2>/dev/null | grep -q "\.napcat"; then
+                log "NapCat 已在后台运行（screen 会话 napcat）"
+                [ "$mode" != "auto" ] && echo -e "查看输出: ${GREEN}screen -r napcat${NC}，离开按 ${GREEN}Ctrl+A 再按 D${NC}"
+                return 0
+            fi
+            # 登录会话保存在容器内，重启 NapCat 会自动快速登录，无需额外参数
             log "后台启动 NapCat（screen 会话 napcat）..."
-            screen -dmS napcat bash -c 'proot-distro sh napcat -- bash -c "xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox"' || {
+            screen -dmS napcat bash -c "proot-distro sh napcat -- bash -c \"xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox\"" || {
                 warn "启动失败，请手动执行:"
                 echo -e "${GREEN}screen -dmS napcat bash -c 'proot-distro sh napcat -- bash -c \"xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox\"'${NC}"
                 return 1
@@ -644,15 +713,20 @@ start_napcat_and_show_token() {
             echo -e "查看启动输出: ${GREEN}screen -r napcat${NC}，离开按 ${GREEN}Ctrl+A 再按 D${NC}"
             ;;
         "Linux")
+            if ! command -v napcat &>/dev/null && ! command -v qq &>/dev/null; then
+                if [ "$mode" = "auto" ]; then
+                    warn "未安装 NapCat，跳过自动拉起（菜单 5 可安装）"
+                else
+                    warn "未找到 napcat/qq 启动命令，请按安装输出的说明手动启动，启动后再选菜单 6 查看 token"
+                fi
+                return 1
+            fi
             if command -v napcat &>/dev/null; then
                 log "后台启动 NapCat..."
                 nohup napcat >/dev/null 2>&1 &
-            elif command -v qq &>/dev/null; then
+            else
                 log "后台启动 NapCat（qq --no-sandbox）..."
                 nohup qq --no-sandbox >/dev/null 2>&1 &
-            else
-                warn "未找到 napcat/qq 启动命令，请按安装输出的说明手动启动，启动后再选菜单 6 查看 token"
-                return 1
             fi
             ;;
         *)
@@ -661,6 +735,10 @@ start_napcat_and_show_token() {
             ;;
     esac
 
+    if [ "$mode" = "auto" ]; then
+        log "NapCat 已联动拉起"
+        return 0
+    fi
     log "等待 NapCat 首次初始化（生成 token）..."
     sleep 8
     show_napcat_token
@@ -952,6 +1030,7 @@ show_menu() {
     echo -e "                6. 查看 NapCat token${NC}"
     echo -e "                7. 使用帮助${NC}"
     echo -e "                8. 技术支持${NC}"
+    echo -e "                9. 启动 NapCat${NC}"
     if find_yunzai_root >/dev/null 2>&1; then
         echo -e "${GREEN}当前已安装云崽${NC}"
     fi
@@ -976,6 +1055,7 @@ show_help() {
     echo -e "2. 启动云崽 - 选择 3 启动云崽"
     echo -e "3. 安装 NapCat - 选择 5，自动按平台选择安装方式（Termux/Linux/Docker）"
     echo -e "   安装完成后按提示在 NapCat WebUI 配置反向 WS 连接云崽"
+    echo -e "4. 启动 NapCat - 选择 9（手机重启后 NapCat 不会自动恢复，需重新启动）"
     echo -e "${CYAN}====================================${NC}\n"
 }
 
@@ -1019,6 +1099,7 @@ main() {
             6) show_napcat_token; read -p "按回车键返回菜单..." ;;
             7) show_help; read -p "按回车键返回菜单..." ;;
             8) show_support; read -p "按回车键返回菜单..." ;;
+            9) start_napcat_and_show_token direct; read -p "按回车键返回菜单..." ;;
             *) warn "请输入正确选项"; sleep 1 ;;
         esac
     done
