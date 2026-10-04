@@ -601,7 +601,7 @@ download_napcat_installer() {
 patch_napcat_script() {
     # 官方脚本内部会再从 nclatest.znin.net 拉取文件，该源部分网络无法直连；
     # 下载后本地把内部源替换为 jsDelivr 镜像再执行，作为兜底
-    if sed -i 's|https://nclatest.znin.net/NapNeko/NapCat-Installer/|https://cdn.jsdelivr.net/gh/NapNeko/NapCat-Installer@main/|g' "$NAPCAT_SH" 2>/dev/null; then
+    if sed -i 's|https://nclatest.znin.net/NapNeko/NapCat-Installer/main/|https://cdn.jsdelivr.net/gh/NapNeko/NapCat-Installer@main/|g' "$NAPCAT_SH" 2>/dev/null; then
         log "已将安装脚本内部下载源替换为 jsDelivr 镜像"
     else
         warn "替换内部下载源失败，仍按脚本原样执行"
