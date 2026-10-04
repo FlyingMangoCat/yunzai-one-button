@@ -624,8 +624,8 @@ install_napcat() {
                 pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
                 pkg install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE"
                 if [ "${PIPESTATUS[0]}" -ne 0 ]; then
-                    apt update -y 2>&1 | tee -a "$LOG_FILE"
-                    apt install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE"
+                    apt-get update -y 2>&1 | tee -a "$LOG_FILE"
+                    apt-get install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE"
                 fi
             fi
             command -v proot-distro &>/dev/null || error "proot-distro 安装失败，请手动执行: pkg install proot-distro screen"
@@ -668,11 +668,12 @@ install_napcat() {
 
             # 3. 容器内初始化 NapCat（内部源已替换为 jsDelivr，规避 nclatest 不可达）
             log "初始化容器内 NapCat（首次较慢，请耐心等待）..."
-            proot-distro sh napcat -- bash -c "apt update -y && \
-                apt install -y sudo curl libgcrypt20 && \
+            proot-distro sh napcat -- bash -c "export DEBIAN_FRONTEND=noninteractive && \
+                apt-get update -y && \
+                apt-get install -y sudo curl libgcrypt20 && \
                 curl -fsSL -o napcat.sh https://cdn.jsdelivr.net/gh/NapNeko/NapCat-Installer@main/script/install.sh && \
                 sudo bash napcat.sh --docker n --cli n && \
-                apt autoremove -y && apt clean && rm -rf /tmp/* /var/lib/apt/lists" 2>&1 | tee -a "$LOG_FILE"
+                apt-get autoremove -y && apt-get clean && rm -rf /tmp/* /var/lib/apt/lists" 2>&1 | tee -a "$LOG_FILE"
             local ret=${PIPESTATUS[0]}
             if [ $ret -ne 0 ]; then
                 warn "容器内初始化退出码 $ret，请查看上方输出（多为网络波动，可重新运行本项重试）"
