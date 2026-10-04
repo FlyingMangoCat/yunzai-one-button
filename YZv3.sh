@@ -598,6 +598,16 @@ download_napcat_installer() {
     return 1
 }
 
+patch_napcat_script() {
+    # 官方脚本内部会再从 nclatest.znin.net 拉取文件，该源部分网络无法直连；
+    # 下载后本地把内部源替换为 jsDelivr 镜像再执行，作为兜底
+    if sed -i 's|https://nclatest.znin.net/NapNeko/NapCat-Installer/|https://cdn.jsdelivr.net/gh/NapNeko/NapCat-Installer@main/|g' "$NAPCAT_SH" 2>/dev/null; then
+        log "已将安装脚本内部下载源替换为 jsDelivr 镜像"
+    else
+        warn "替换内部下载源失败，仍按脚本原样执行"
+    fi
+}
+
 install_napcat() {
     log "用户选择: 安装 NapCat"
     detect_platform
@@ -606,6 +616,7 @@ install_napcat() {
         "Termux")
             log "Termux 环境：使用 NapCat 官方 Termux 安装脚本..."
             if download_napcat_installer "$NAPCAT_TERMUX_URL"; then
+                patch_napcat_script
                 bash "$NAPCAT_SH"
                 local ret=$?
                 rm -f "$NAPCAT_SH"
@@ -632,6 +643,7 @@ install_napcat() {
             local args=()
             [ "$use_docker" = "y" ] && args+=(--docker y)
             if download_napcat_installer "$NAPCAT_INSTALLER_URL"; then
+                patch_napcat_script
                 bash "$NAPCAT_SH" "${args[@]}"
                 local ret=$?
                 rm -f "$NAPCAT_SH"
