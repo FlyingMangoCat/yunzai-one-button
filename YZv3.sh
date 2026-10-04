@@ -628,6 +628,69 @@ patch_napcat_script() {
     fi
 }
 
+# ---------- 预下载 QQ 安装包 ----------
+# NapCat 官方安装脚本内置的 qqdl.gtimg.cn QQ 下载链接已被腾讯下架(404,
+# 下载到的是 XML 错误页, 解压报 not a Debian format archive), 官方仓库
+# issue #97 未修复。改为从第三方存档仓库预下载可用安装包放到官方脚本
+# 的工作目录; 官方脚本检测到本地 QQ.deb/QQ.rpm 存在时会跳过下载直接解压。
+prepare_qq_package() {
+    local dest_dir="$1"   # 官方脚本运行时的工作目录
+    local pkg_type="$2"   # deb 或 rpm
+
+    # 架构映射: aarch64→arm64(deb)/aarch64(rpm), x86_64→amd64(deb)/x86_64(rpm)
+    local qq_arch
+    case "$(uname -m)" in
+        x86_64)  qq_arch=$([ "$pkg_type" = "deb" ] && echo amd64 || echo x86_64) ;;
+        aarch64) qq_arch=$([ "$pkg_type" = "deb" ] && echo arm64 || echo aarch64) ;;
+        *) warn "架构 $(uname -m) 无可用 QQ 安装包，交由官方脚本自行处理"; return 1 ;;
+    esac
+
+    local file_name="QQ.deb"
+    [ "$pkg_type" = "rpm" ] && file_name="QQ.rpm"
+    local dest="$dest_dir/$file_name"
+
+    # 校验函数: deb 包头为 !<arch>, rpm 包头为 ed ab ee db; 404 错误页会被拒绝
+    verify_qq_file() {
+        if [ "$pkg_type" = "deb" ]; then
+            head -c 8 "$dest" 2>/dev/null | grep -q '!<arch>'
+        else
+            [ "$(head -c 4 "$dest" 2>/dev/null | od -An -tx1 | tr -d ' \n')" = "edabeedb" ]
+        fi
+    }
+
+    # 已存在且合法则跳过
+    if [ -f "$dest" ] && verify_qq_file; then
+        log "检测到已预下载的 QQ 安装包，跳过下载"
+        return 0
+    fi
+    rm -f "$dest"
+
+    # 从存档仓库解析最新包地址
+    local url
+    url=$(curl -s --connect-timeout 10 --max-time 30 "https://api.github.com/repos/Rodert/qq-versions/releases/latest" \
+        | grep -o "\"browser_download_url\": \"[^\"]*_01\.$pkg_type\"" \
+        | cut -d'"' -f4 | grep "_${qq_arch}_" | head -n 1)
+    if [ -z "$url" ]; then
+        warn "未能从存档仓库解析出 QQ ${qq_arch} 包地址，交由官方脚本自行下载"
+        return 1
+    fi
+
+    log "QQ 官方下载链接已失效，预下载可用安装包（约 200MB）..."
+    local i
+    for i in 1 2 3; do
+        curl -fL -# --connect-timeout 15 --max-time 1800 -o "$dest" "$url" || true
+        if [ -f "$dest" ] && verify_qq_file; then
+            success "QQ 安装包预下载完成并校验通过"
+            return 0
+        fi
+        log "QQ 安装包下载/校验失败，重试 ($i/3)..."
+        rm -f "$dest"
+        sleep 2
+    done
+    warn "QQ 安装包预下载失败，交由官方脚本自行下载（其内置链接当前已失效，失败请重试本项）"
+    return 1
+}
+
 install_napcat() {
     log "用户选择: 安装 NapCat"
     detect_platform
@@ -689,6 +752,19 @@ install_napcat() {
             fi
 
             # 3. 容器内初始化 NapCat（内部源已替换为 jsDelivr，规避 nclatest 不可达）
+            # 定位容器 root 的家目录（官方脚本在 /root 下运行）
+            local container_root=""
+            if [ -d "$napcat_rootfs_new/rootfs/root" ]; then
+                container_root="$napcat_rootfs_new/rootfs/root"
+            elif [ -d "$napcat_rootfs_legacy/root" ]; then
+                container_root="$napcat_rootfs_legacy/root"
+            fi
+            if [ -n "$container_root" ]; then
+                # 清理上次失败残留的官方脚本临时目录（残留会导致官方脚本拒绝执行）
+                rm -rf "$container_root/NapCat" 2>/dev/null || true
+                # QQ 官方下载链接已失效(404)，预下载可用安装包放进容器，官方脚本检测到本地包会跳过下载
+                prepare_qq_package "$container_root" deb || true
+            fi
             log "初始化容器内 NapCat（首次较慢，请耐心等待）..."
             proot-distro sh napcat -- bash -c "export DEBIAN_FRONTEND=noninteractive && \
                 apt-get update -y && \
@@ -723,6 +799,12 @@ install_napcat() {
             [ "$use_docker" = "y" ] && args+=(--docker y)
             if download_napcat_installer "$NAPCAT_INSTALLER_URL"; then
                 patch_napcat_script
+                # 非 Docker 方式: QQ 官方链接已失效(404)，预下载本地安装包，官方脚本检测到会跳过下载
+                if [ "$use_docker" != "y" ]; then
+                    local qq_pkg_type="deb"
+                    command -v dpkg &>/dev/null || qq_pkg_type="rpm"
+                    prepare_qq_package "$PWD" "$qq_pkg_type" || true
+                fi
                 bash "$NAPCAT_SH" "${args[@]}"
                 local ret=$?
                 rm -f "$NAPCAT_SH"
