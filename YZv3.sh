@@ -552,17 +552,23 @@ NAPCAT_TERMUX_URL="https://nclatest.znin.net/NapNeko/NapCat-Installer/main/scrip
 
 download_napcat_installer() {
     # 多源下载安装脚本，返回 0 表示成功，文件路径存入 NAPCAT_SH
-    local urls=("$1")
-    # 官方源失败时走 ghproxy 镜像
-    local mirror_path="${1#https://nclatest.znin.net/NapNeko/}"
-    mirror_path="${mirror_path%/script/install.sh}"
-    mirror_path="${mirror_path%/script/install.termux.sh}"
-    urls+=("https://ghproxy.com/https://raw.githubusercontent.com/NapNeko/NapCat-Installer/main/$(basename "$1")")
+    # 源顺序: 官方源 → jsDelivr 镜像 → GitHub raw 直连
+    local base_name
+    if [[ "$1" == *install.termux.sh ]]; then
+        base_name="install.termux.sh"
+    else
+        base_name="install.sh"
+    fi
+    local urls=(
+        "$1"
+        "https://cdn.jsdelivr.net/gh/NapNeko/NapCat-Installer@main/script/$base_name"
+        "https://raw.githubusercontent.com/NapNeko/NapCat-Installer/main/script/$base_name"
+    )
     NAPCAT_SH=".napcat_install_$$"
     for url in "${urls[@]}"; do
         for i in 1 2 3; do
             curl -fsSL --connect-timeout 15 --max-time 120 -o "$NAPCAT_SH" "$url" && [ -s "$NAPCAT_SH" ] && return 0
-            log "下载 NapCat 安装脚本失败，重试 ($i/3)..."
+            log "下载 NapCat 安装脚本失败（$url），重试 ($i/3)..."
             sleep 2
         done
     done
