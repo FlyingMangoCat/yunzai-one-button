@@ -664,8 +664,12 @@ install_napcat() {
             fi
             if [ "$container_ready" != "true" ]; then
                 local container_ok=false
-                # 第 1 次走官方 Docker Hub 源；失败后改用实测可用的国内镜像源兜底
+                # 预检: 5 秒探测官方 Docker Hub, 不通则跳过官方源直接走国内镜像, 免去漫长等待
                 local image_refs=("debian" "dockerproxy.net/library/debian")
+                if ! curl -s --connect-timeout 5 --max-time 8 "https://registry-1.docker.io/v2/" -o /dev/null; then
+                    log "官方 Docker Hub 连接失败（预检 5 秒超时），直接使用国内镜像源"
+                    image_refs=("dockerproxy.net/library/debian")
+                fi
                 for ref in "${image_refs[@]}"; do
                     for i in 1 2 3; do
                         log "安装 napcat 容器（来源 $ref，尝试 $i/3）..."
