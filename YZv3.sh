@@ -534,12 +534,28 @@ install_napcat() {
             fi
             ;;
         "macOS")
-            log "macOS 环境：请前往 https://napneko.github.io/guide/start-install 下载 NapCat.MacOs 安装工具"
-            warn "macOS 暂未接入一键安装，已打开官方文档页面"
+            log "macOS 环境：请手动下载 NapCat.MacOs 安装工具"
+            echo -e "\n${CYAN}========== macOS 安装 NapCat 步骤 ==========${NC}"
+            echo -e "1. 打开下载页: ${GREEN}https://github.com/NapNeko/NapCatQQ/releases${NC}"
+            echo -e "2. 下载 ${GREEN}NapCat.MacOs${NC} (需要 macOS 12.0 或以上系统)"
+            echo -e "3. 打开下载的文件，按安装工具界面引导完成安装"
+            echo -e "   注意: 由于权限问题，补丁过程可能需要手动替换 package.json，注意备份原文件"
+            echo -e "4. 安装完成后按下方提示配置反向 WS 连接云崽"
+            echo -e "${CYAN}============================================${NC}\n"
+            show_napcat_ws_guide
             ;;
         "Windows")
-            log "Windows 环境：请前往 https://napneko.github.io/guide/start-install 下载 NapCat 一键版（NapCat.Shell.Windows.OneKey.zip）"
-            warn "Windows 暂未接入一键安装，请使用官方一键版"
+            log "Windows 环境：请手动下载 NapCat 一键版"
+            echo -e "\n${CYAN}========== Windows 安装 NapCat 步骤 ==========${NC}"
+            echo -e "1. 打开下载页: ${GREEN}https://github.com/NapNeko/NapCatQQ/releases${NC}"
+            echo -e "2. 下载 ${GREEN}NapCat.Shell.Windows.OneKey.zip${NC} (无头绿色版本，无需安装 QQ 和 NapCat，已内置)"
+            echo -e "3. 解压到任意目录"
+            echo -e "4. 双击运行 ${GREEN}NapCatInstaller.exe${NC} 等待自动化配置完成"
+            echo -e "5. 进入 NapCat.XXXX.Shell 目录，双击 ${GREEN}napcat.bat${NC} 启动"
+            echo -e "   快速登录: 启动时可传 QQ 号参数，如 napcat.bat 123456"
+            echo -e "6. 启动后会输出 WebUI 地址，按下方提示配置反向 WS 连接云崽"
+            echo -e "${CYAN}==============================================${NC}\n"
+            show_napcat_ws_guide
             ;;
         *)
             error "无法识别当前平台，无法安装 NapCat"
