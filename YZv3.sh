@@ -43,6 +43,20 @@ success() { log "${GREEN}[SUCCESS] $1${NC}"; }
 warn() { log "${YELLOW}[WARNING] $1${NC}"; }
 error() { log "${RED}[ERROR] $1${NC}"; exit 1; }
 
+# ---------- Termux 主源切换清华镜像 ----------
+# 官方 CDN(packages-cf.termux.dev) 部分网络极慢/超时, 实测清华镜像可用;
+# 已使用国内镜像则不动, 原源备份为 sources.list.bak.yzb 可随时还原
+ensure_termux_mirror() {
+    local src="$PREFIX/etc/apt/sources.list"
+    [ -f "$src" ] || return 0
+    if grep -q "mirrors.tuna.tsinghua.edu.cn\|mirrors.bfsu.edu.cn\|mirrors.ustc.edu.cn" "$src"; then
+        return 0
+    fi
+    log "Termux 主源为官方 CDN, 切换为清华镜像加速（原源已备份为 sources.list.bak.yzb）..."
+    cp "$src" "$src.bak.yzb" 2>/dev/null || true
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main stable main" > "$src"
+}
+
 # ---------- 1. 获取权限 ----------
 get_permissions() {
     log "获取系统权限..."
@@ -79,6 +93,8 @@ install_environment() {
     case "$CURRENT_PLATFORM" in
         "Termux")
             log "Termux 环境安装..."
+            # 官方 CDN 慢时自动切国内镜像（内部已判断，已在用国内源则不动）
+            ensure_termux_mirror
             # 更新源（失败不阻断，错误可见）
             pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
             pkg upgrade -y 2>&1 | tee -a "$LOG_FILE" || true
@@ -619,8 +635,9 @@ install_napcat() {
         "Termux")
             log "Termux 环境：按官方 Termux 方案安装（proot-distro debian 容器）..."
             # 以下步骤复刻官方 install.termux.sh，区别: 容器安装失败会自动重试
-            # 1. 准备 proot-distro / screen
+            # 1. 准备 proot-distro / screen（官方 CDN 慢时自动切国内镜像）
             if ! command -v proot-distro &>/dev/null || ! command -v screen &>/dev/null; then
+                ensure_termux_mirror
                 pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
                 pkg install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE"
                 if [ "${PIPESTATUS[0]}" -ne 0 ]; then
