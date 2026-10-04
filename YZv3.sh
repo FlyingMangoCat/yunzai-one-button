@@ -457,6 +457,96 @@ start_yunzai() {
     cd "$YUNZAI_DIR" && node app
 }
 
+# ---------- NapCat 反向 WS 配置提示 ----------
+show_napcat_ws_guide() {
+    echo -e "\n${CYAN}========== NapCat 反向 WS 配置（连接云崽） ==========${NC}"
+    echo -e "1. 启动 NapCat 后，会输出 WebUI 地址（如 http://localhost:6099/webui），浏览器打开"
+    echo -e "2. 首次进入需要登录，token 在 NapCat 启动输出中可查"
+    echo -e "3. 进入 ${GREEN}网络配置${NC} → 新建 → 选 ${GREEN}WebSocket 客户端（反向 WS）${NC}"
+    echo -e "4. URL 填: ${GREEN}ws://127.0.0.1:8080${NC}（云崽默认端口，以云崽实际配置为准）"
+    echo -e "5. 保存并启用后，云崽端确认已开启 OneBot 适配（首次启动云崽按提示配置）"
+    echo -e "6. 云崽端收到 \"OneBot 接入成功\" 之类的日志即表示连接成功"
+    echo -e "${CYAN}====================================================${NC}\n"
+}
+
+# ---------- 安装 NapCat ----------
+NAPCAT_INSTALLER_URL="https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh"
+NAPCAT_TERMUX_URL="https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.termux.sh"
+
+download_napcat_installer() {
+    # 多源下载安装脚本，返回 0 表示成功，文件路径存入 NAPCAT_SH
+    local urls=("$1")
+    # 官方源失败时走 ghproxy 镜像
+    local mirror_path="${1#https://nclatest.znin.net/NapNeko/}"
+    mirror_path="${mirror_path%/script/install.sh}"
+    mirror_path="${mirror_path%/script/install.termux.sh}"
+    urls+=("https://ghproxy.com/https://raw.githubusercontent.com/NapNeko/NapCat-Installer/main/$(basename "$1")")
+    NAPCAT_SH=".napcat_install_$$"
+    for url in "${urls[@]}"; do
+        for i in 1 2 3; do
+            curl -fsSL --connect-timeout 15 --max-time 120 -o "$NAPCAT_SH" "$url" && [ -s "$NAPCAT_SH" ] && return 0
+            log "下载 NapCat 安装脚本失败，重试 ($i/3)..."
+            sleep 2
+        done
+    done
+    return 1
+}
+
+install_napcat() {
+    log "用户选择: 安装 NapCat"
+    detect_platform
+
+    case "$CURRENT_PLATFORM" in
+        "Termux")
+            log "Termux 环境：使用 NapCat 官方 Termux 安装脚本..."
+            if download_napcat_installer "$NAPCAT_TERMUX_URL"; then
+                bash "$NAPCAT_SH"
+                local ret=$?
+                rm -f "$NAPCAT_SH"
+                if [ $ret -eq 0 ]; then
+                    success "NapCat 安装脚本执行完成"
+                    show_napcat_ws_guide
+                else
+                    warn "NapCat 安装脚本退出码 $ret，请查看上方输出"
+                fi
+            else
+                error "NapCat 安装脚本下载失败，请检查网络"
+            fi
+            ;;
+        "Linux")
+            if command -v docker &>/dev/null; then
+                log "检测到 Docker，可使用容器方式安装"
+                echo -e "${YELLOW}提示: 回车直接用 Shell 方式安装；输入 y 用 Docker 方式安装${NC}"
+                read -p "是否使用 Docker 安装 NapCat? (y/回车): " use_docker
+            else
+                use_docker=""
+                log "未检测到 Docker，使用 Shell 方式安装"
+            fi
+            local args=()
+            [ "$use_docker" = "y" ] && args+=(--docker y)
+            if download_napcat_installer "$NAPCAT_INSTALLER_URL"; then
+                bash "$NAPCAT_SH" "${args[@]}"
+                local ret=$?
+                rm -f "$NAPCAT_SH"
+                [ $ret -eq 0 ] && success "NapCat 安装脚本执行完成" || warn "NapCat 安装脚本退出码 $ret，请查看上方输出"
+            else
+                error "NapCat 安装脚本下载失败，请检查网络"
+            fi
+            ;;
+        "macOS")
+            log "macOS 环境：请前往 https://napneko.github.io/guide/start-install 下载 NapCat.MacOs 安装工具"
+            warn "macOS 暂未接入一键安装，已打开官方文档页面"
+            ;;
+        "Windows")
+            log "Windows 环境：请前往 https://napneko.github.io/guide/start-install 下载 NapCat 一键版（NapCat.Shell.Windows.OneKey.zip）"
+            warn "Windows 暂未接入一键安装，请使用官方一键版"
+            ;;
+        *)
+            error "无法识别当前平台，无法安装 NapCat"
+            ;;
+    esac
+}
+
 # ---------- 菜单 ----------
 show_menu() {
     echo -e "${YELLOW}----------------------菜单---------------------${NC}"
@@ -466,8 +556,9 @@ show_menu() {
     echo -e "                2. 安装喵版云崽${NC}"
     echo -e "                3. 启动云崽${NC}"
     echo -e "                4. 进入云崽根目录${NC}"
-    echo -e "                5. 使用帮助${NC}"
-    echo -e "                6. 技术支持${NC}"
+    echo -e "                5. 安装 NapCat${NC}"
+    echo -e "                6. 使用帮助${NC}"
+    echo -e "                7. 技术支持${NC}"
     if [ -d "$YUNZAI_DIR" ]; then
         echo -e "${GREEN}当前已安装云崽${NC}"
     fi
@@ -499,6 +590,8 @@ show_help() {
     echo -e "\n${CYAN}============== 使用帮助 ==============${NC}"
     echo -e "1. 安装云崽 - 选择 1 或 2 安装对应版本"
     echo -e "2. 启动云崽 - 选择 3 启动云崽"
+    echo -e "3. 安装 NapCat - 选择 5，自动按平台选择安装方式（Termux/Linux/Docker）"
+    echo -e "   安装完成后按提示在 NapCat WebUI 配置反向 WS 连接云崽"
     echo -e "${CYAN}====================================${NC}\n"
 }
 
@@ -538,8 +631,9 @@ main() {
             2) install_miao; read -p "按回车键返回菜单..." ;;
             3) start_yunzai; read -p "按回车键返回菜单..." ;;
             4) enter_yunzai_dir ;;
-            5) show_help; read -p "按回车键返回菜单..." ;;
-            6) show_support; read -p "按回车键返回菜单..." ;;
+            5) install_napcat; read -p "按回车键返回菜单..." ;;
+            6) show_help; read -p "按回车键返回菜单..." ;;
+            7) show_support; read -p "按回车键返回菜单..." ;;
             *) warn "请输入正确选项"; sleep 1 ;;
         esac
     done
