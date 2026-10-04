@@ -466,11 +466,12 @@ show_napcat_token() {
     local candidates=()
     case "$CURRENT_PLATFORM" in
         "Termux")
-            candidates=("$HOME/NapCat/config/webui.json" "$HOME/napcat/config/webui.json" "$PREFIX/NapCat/config/webui.json")
+            # 官方 Termux 脚本装在 proot-distro 容器（别名 napcat）内
+            candidates=("$PREFIX/var/lib/proot-distro/installed-rootfs/napcat/root/Napcat/opt/QQ/resources/app/app_launcher/napcat/config/webui.json")
             ;;
         "Linux")
             # 官方 Shell 直装默认在 /opt/QQ 下
-            candidates=("/opt/QQ/resources/app/app_launcher/napcat/config/webui.json" "$HOME/NapCat/config/webui.json")
+            candidates=("/opt/QQ/resources/app/app_launcher/napcat/config/webui.json")
             ;;
         *)
             candidates=()
@@ -482,12 +483,12 @@ show_napcat_token() {
         if [ -f "$f" ]; then found="$f"; break; fi
     done
 
-    # 没有在固定位置找到时，兜底全盘搜（限深度，避免卡顿）
+    # 没有在固定位置找到时，兜底搜索（限深度，避免卡顿）
     if [ -z "$found" ]; then
         log "固定位置未找到 webui.json，尝试搜索（可能较慢）..."
         case "$CURRENT_PLATFORM" in
-            "Termux") found=$(find "$HOME" -maxdepth 5 -path "*/napcat*/config/webui.json" 2>/dev/null | head -n 1) ;;
-            "Linux")  found=$(find /opt "$HOME" -maxdepth 8 -path "*/napcat*/config/webui.json" 2>/dev/null | head -n 1) ;;
+            "Termux") found=$(find "$PREFIX/var/lib/proot-distro/installed-rootfs" -maxdepth 10 -name webui.json -path "*napcat*" 2>/dev/null | head -n 1) ;;
+            "Linux")  found=$(find /opt "$HOME" -maxdepth 8 -path "*napcat*/config/webui.json" 2>/dev/null | head -n 1) ;;
         esac
     fi
 
@@ -514,19 +515,41 @@ start_napcat_and_show_token() {
     read -p "立即启动 NapCat? (y/回车): " start_now
     [ "$start_now" != "y" ] && return 0
 
-    # 找启动命令：官方安装脚本会提供 napcat 命令
-    local start_cmd=""
-    if command -v napcat &>/dev/null; then
-        start_cmd="napcat"
-    elif command -v qq &>/dev/null; then
-        start_cmd="qq --no-sandbox"
-    else
-        warn "未找到 napcat 启动命令，请按安装输出的说明手动启动，启动后再选菜单 6 查看 token"
-        return 1
-    fi
+    detect_platform
+    case "$CURRENT_PLATFORM" in
+        "Termux")
+            # 官方 Termux 方式: proot-distro 容器 + screen 后台（与官方脚本输出一致）
+            if ! command -v proot-distro &>/dev/null; then
+                warn "未找到 proot-distro，请按安装脚本输出的说明手动启动"
+                return 1
+            fi
+            log "后台启动 NapCat（screen 会话 napcat）..."
+            screen -dmS napcat bash -c 'proot-distro sh napcat -- bash -c "xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox"' || {
+                warn "启动失败，请手动执行:"
+                echo -e "${GREEN}screen -dmS napcat bash -c 'proot-distro sh napcat -- bash -c \"xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox\"'${NC}"
+                return 1
+            }
+            echo -e "${GREEN}已在 screen 后台会话 napcat 中启动${NC}"
+            echo -e "查看启动输出: ${GREEN}screen -r napcat${NC}，离开按 ${GREEN}Ctrl+A 再按 D${NC}"
+            ;;
+        "Linux")
+            if command -v napcat &>/dev/null; then
+                log "后台启动 NapCat..."
+                nohup napcat >/dev/null 2>&1 &
+            elif command -v qq &>/dev/null; then
+                log "后台启动 NapCat（qq --no-sandbox）..."
+                nohup qq --no-sandbox >/dev/null 2>&1 &
+            else
+                warn "未找到 napcat/qq 启动命令，请按安装输出的说明手动启动，启动后再选菜单 6 查看 token"
+                return 1
+            fi
+            ;;
+        *)
+            warn "当前平台请按对应安装说明手动启动，启动后再选菜单 6 查看 token"
+            return 1
+            ;;
+    esac
 
-    log "后台启动 NapCat: $start_cmd"
-    nohup $start_cmd >/dev/null 2>&1 &
     log "等待 NapCat 首次初始化（生成 token）..."
     sleep 8
     show_napcat_token
