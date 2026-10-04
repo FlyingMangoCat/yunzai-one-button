@@ -461,7 +461,9 @@ start_yunzai() {
 show_napcat_ws_guide() {
     echo -e "\n${CYAN}========== NapCat 反向 WS 配置（连接云崽） ==========${NC}"
     echo -e "1. 启动 NapCat 后，会输出 WebUI 地址（如 http://localhost:6099/webui），浏览器打开"
-    echo -e "2. 首次进入需要登录，token 在 NapCat 启动输出中可查"
+    echo -e "2. 首次进入需要登录 token，两种方式获取："
+    echo -e "   a. 启动日志里会打印 ${GREEN}WebUI token: xxxx${NC}，注意看启动输出"
+    echo -e "   b. 找不到日志就打开 NapCat 安装目录下 ${GREEN}config/webui.json${NC}，${GREEN}token${NC} 字段即登录密码"
     echo -e "3. 进入 ${GREEN}网络配置${NC} → 新建 → 选 ${GREEN}WebSocket 客户端（反向 WS）${NC}"
     echo -e "4. URL 填: ${GREEN}ws://127.0.0.1:8080${NC}（云崽默认端口，以云崽实际配置为准）"
     echo -e "5. 保存并启用后，云崽端确认已开启 OneBot 适配（首次启动云崽按提示配置）"
