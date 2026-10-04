@@ -8,9 +8,12 @@
 # ---------- 配置 ----------
 VERSION="3.0.0"
 SUPPORT_GROUP="658720198"
-YUNZAI_DIR="$PWD/yunzai-one-button-fmc"
+# 脚本所在目录（锚定安装位置，从任何目录启动脚本都能找到已安装的云崽）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "$PWD")"
+YUNZAI_DIR="$SCRIPT_DIR/yunzai-one-button-fmc"
 CURRENT_PLATFORM=""
 CURRENT_OS=""
+IS_TERMUX=false
 
 # 颜色
 RED='\033[0;31m'
@@ -74,8 +77,13 @@ detect_platform() {
     log "检测当前平台..."
     if [[ "$OSTYPE" == "linux-gnu"* || "$OSTYPE" == "linux-android"* ]]; then
         CURRENT_OS="Linux"
-        if [ -n "$PREFIX" ] && [ -d "$PREFIX" ]; then CURRENT_PLATFORM="Termux"
-        else CURRENT_PLATFORM="Linux"; fi
+        # Termux 判定三重依据: TERMUX_VERSION 变量 / PREFIX 指向 Termux 路径 / 固定目录存在
+        if [ -n "$TERMUX_VERSION" ] || { [ -n "$PREFIX" ] && [ -d "/data/data/com.termux" ]; }; then
+            CURRENT_PLATFORM="Termux"
+            IS_TERMUX=true
+        else
+            CURRENT_PLATFORM="Linux"
+        fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         CURRENT_OS="macOS"; CURRENT_PLATFORM="macOS"
     elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
@@ -100,7 +108,9 @@ install_environment() {
             pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
             pkg upgrade -y 2>&1 | tee -a "$LOG_FILE" || true
             # 核心依赖逐个安装并重试，失败原因直接可见
-            local core_pkgs=(nodejs-lts git redis wget curl python3 ffmpeg fonts-wqy-microhei fonts-wqy-zenhei)
+            # 注意: Termux 仓库无 python3(包名是 python)、无 wqy 字体包, 勿照搬发行版包名
+            # python/make/clang/binutils 是 node-gyp 编译工具链, sqlite3 等原生模块必需
+            local core_pkgs=(nodejs-lts git redis wget curl python ffmpeg make clang binutils fontconfig)
             for pkg in "${core_pkgs[@]}"; do
                 for i in 1 2 3; do
                     pkg install -y "$pkg" 2>&1 | tee -a "$LOG_FILE"
@@ -112,10 +122,28 @@ install_environment() {
             # 验证关键组件是否安装成功
             command -v node &>/dev/null || error "Node.js 安装失败，请检查 pkg 源和网络（详见日志 $LOG_FILE）"
             command -v git &>/dev/null || error "Git 安装失败"
-            # Chromium（体积大易失败，不阻塞主流程）
+            # Chromium 在 x11 仓库（main 仓库没有），需先启用 x11-repo；体积大易失败，不阻塞主流程
             if ! command -v chromium &>/dev/null; then
+                pkg install -y x11-repo 2>&1 | tee -a "$LOG_FILE" || true
+                # x11 源默认指向官方 CDN，切到实测可用的 BFSU 镜像（tuna 未同步 x11）
+                local x11src="$PREFIX/etc/apt/sources.list.d/x11.list"
+                if [ -f "$x11src" ]; then
+                    cp "$x11src" "$x11src.bak.yzb" 2>/dev/null || true
+                    echo "deb https://mirrors.bfsu.edu.cn/termux/apt/termux-x11 x11 main" > "$x11src"
+                fi
+                pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
                 pkg install -y chromium 2>&1 | tee -a "$LOG_FILE"
-                [ "${PIPESTATUS[0]}" -ne 0 ] && warn "Chromium 安装失败，可稍后手动执行: pkg install -y chromium"
+                [ "${PIPESTATUS[0]}" -ne 0 ] && warn "Chromium 安装失败，可稍后手动执行: pkg install x11-repo && pkg update && pkg install chromium"
+            fi
+            # 中文字体（Termux 仓库无 wqy 字体包，直接下载字体文件；缺失会导致渲染图片中文乱码）
+            if ! fc-list 2>/dev/null | grep -qi "simhei\|wqy\|noto.*cjk"; then
+                mkdir -p "$PREFIX/share/fonts"
+                curl -fL -# --connect-timeout 15 --max-time 300 \
+                    -o "$PREFIX/share/fonts/SimHei.ttf" \
+                    "https://cdn.jsdelivr.net/gh/StellarCN/scp_zh@master/fonts/SimHei.ttf" \
+                    && fc-cache -f >/dev/null 2>&1 \
+                    && success "中文字体 SimHei 安装完成" \
+                    || warn "中文字体下载失败，渲染图片中文可能乱码，可稍后重试本项"
             fi
             # 启动 Redis
             redis-server --daemonize yes 2>/dev/null || true
@@ -315,7 +343,12 @@ install_yunzai() {
     # 4.3 安装环境依赖
     install_environment
 
-    # 4.4 创建总目录
+    # 4.4 创建总目录（优先复用已有安装位置，兼容旧版以 $PWD 锚定的历史安装）
+    local existing_base
+    if existing_base=$(find_yunzai_base 2>/dev/null); then
+        YUNZAI_DIR="$existing_base"
+        log "检测到已有安装目录: $YUNZAI_DIR"
+    fi
     mkdir -p "$YUNZAI_DIR" || error "创建目录 $YUNZAI_DIR 失败"
 
     # 4.5 克隆代码（含重试+镜像）
@@ -329,16 +362,16 @@ install_yunzai() {
         if echo "$repo_url" | grep -q "gitee.com"; then
             local rp=$(echo "$repo_url" | sed 's|https://gitee.com/||' | sed 's|\.git$||')
             if echo "$rp" | grep -q "huifeidemangguomao/MangoCat-Yunzai"; then
-                clone_urls+=("https://github.com/FlyingMangoCat/MangoCat-Yunzai.git" "https://ghproxy.com/https://github.com/FlyingMangoCat/MangoCat-Yunzai.git")
+                clone_urls+=("https://github.com/FlyingMangoCat/MangoCat-Yunzai.git" "https://gh-proxy.com/https://github.com/FlyingMangoCat/MangoCat-Yunzai.git")
             fi
             if echo "$rp" | grep -q "yoimiya-kokomi/Miao-Yunzai"; then
-                clone_urls+=("https://github.com/yoimiya-kokomi/Miao-Yunzai.git" "https://ghproxy.com/https://github.com/yoimiya-kokomi/Miao-Yunzai.git")
+                clone_urls+=("https://github.com/yoimiya-kokomi/Miao-Yunzai.git" "https://gh-proxy.com/https://github.com/yoimiya-kokomi/Miao-Yunzai.git")
             fi
             clone_urls+=("https://gitee.com/$rp.git")
         fi
         if echo "$repo_url" | grep -q "github.com"; then
             local rp=$(echo "$repo_url" | sed 's|https://github.com/||')
-            clone_urls+=("https://ghproxy.com/https://github.com/$rp" "https://hub.fastgit.xyz/$rp")
+            clone_urls+=("https://gh-proxy.com/https://github.com/$rp")
         fi
         local ok=false
         local repo_name=$(basename "$repo_url" .git)
@@ -368,7 +401,7 @@ install_yunzai() {
         local pnpm_ver="pnpm@10"
         [ "$node_ver" -ge 22 ] && pnpm_ver="pnpm"
         # Termux/Android 文件系统不支持新版 pnpm 的 lock_shared()，固定用 pnpm@8
-        if [ -d "/data/data/com.termux" ]; then
+        if [ "$IS_TERMUX" = "true" ]; then
             pnpm_ver="pnpm@8"
             log "检测到 Termux 环境，使用 pnpm@8"
         fi
@@ -460,19 +493,61 @@ install_miao() {
         "喵版云崽"
 }
 
+# ---------- 定位云崽总目录 ----------
+# 依次探测: 脚本所在目录 / 家目录 / 当前目录（兼容旧版以 $PWD 锚定的历史安装位置）
+# 优先返回已含云崽代码(package.json)的总目录，其次返回存在的空目录
+find_yunzai_base() {
+    local base d
+    for base in "$SCRIPT_DIR/yunzai-one-button-fmc" "$HOME/yunzai-one-button-fmc" "$PWD/yunzai-one-button-fmc"; do
+        [ -d "$base" ] || continue
+        if [ -f "$base/package.json" ]; then echo "$base"; return 0; fi
+        for d in "$base"/*/; do
+            if [ -f "${d}package.json" ]; then echo "$base"; return 0; fi
+        done
+    done
+    for base in "$SCRIPT_DIR/yunzai-one-button-fmc" "$HOME/yunzai-one-button-fmc" "$PWD/yunzai-one-button-fmc"; do
+        [ -d "$base" ] && { echo "$base"; return 0; }
+    done
+    return 1
+}
+
+# ---------- 查找云崽根目录 ----------
+# 总目录本身或其一级子目录中含 package.json 的那个（安装后代码在仓库子目录里，
+# 重启脚本后不能只查总目录，否则误报"未安装"）
+find_yunzai_root() {
+    local base
+    base=$(find_yunzai_base) || return 1
+    if [ -f "$base/package.json" ]; then
+        echo "$base"
+        return 0
+    fi
+    local d
+    for d in "$base"/*/; do
+        if [ -f "${d}package.json" ]; then
+            echo "${d%/}"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # ---------- 选项 3: 启动云崽 ----------
 start_yunzai() {
     log "用户选择: 启动云崽"
-    if [ ! -d "$YUNZAI_DIR" ]; then
-        echo -e "${RED}未检测到安装目录 $YUNZAI_DIR，请先安装云崽${NC}"
+    local target
+    target=$(find_yunzai_root) || {
+        echo -e "${RED}未检测到已安装的云崽（$YUNZAI_DIR 下无 package.json），请先安装${NC}"
         return
-    fi
-    if [ ! -f "$YUNZAI_DIR/package.json" ]; then
-        echo -e "${RED}未检测到云崽代码，请先安装${NC}"
-        return
+    }
+    # Redis 未运行时先拉起（重启脚本/手机后 Redis 不会自动恢复，Termux 无 systemd）
+    if ! redis-cli ping 2>/dev/null | grep -q PONG; then
+        log "Redis 未运行，启动 Redis..."
+        redis-server --daemonize yes 2>/dev/null || true
+        sleep 1
+        redis-cli ping 2>/dev/null | grep -q PONG && success "Redis 已启动" || warn "Redis 启动失败，云崽可能无法连接数据库"
     fi
     echo -e "${GREEN}启动云崽...${NC}"
-    cd "$YUNZAI_DIR" && node app
+    cd "$target" && node app
 }
 
 # ---------- 查看 NapCat WebUI token ----------
@@ -862,7 +937,7 @@ show_menu() {
     echo -e "                6. 查看 NapCat token${NC}"
     echo -e "                7. 使用帮助${NC}"
     echo -e "                8. 技术支持${NC}"
-    if [ -d "$YUNZAI_DIR" ]; then
+    if find_yunzai_root >/dev/null 2>&1; then
         echo -e "${GREEN}当前已安装云崽${NC}"
     fi
     echo -e "${YELLOW}----------------by 会飞的芒果猫------------------${NC}"
@@ -871,20 +946,11 @@ show_menu() {
 # ---------- 进入云崽根目录 ----------
 enter_yunzai_dir() {
     log "用户选择: 进入云崽根目录"
-    local target="$YUNZAI_DIR"
-    # 查找云崽根目录（总目录下的子目录，含 package.json）
-    if [ -d "$YUNZAI_DIR" ]; then
-        for d in "$YUNZAI_DIR"/*/; do
-            if [ -f "$d/package.json" ]; then
-                target="$d"
-                break
-            fi
-        done
-    fi
-    if [ ! -d "$target" ]; then
+    local target
+    target=$(find_yunzai_root) || {
         echo -e "${RED}未检测到安装目录，请先安装云崽${NC}"
         return
-    fi
+    }
     cd "$target" && exec bash
 }
 
