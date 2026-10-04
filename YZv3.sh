@@ -571,7 +571,6 @@ show_napcat_ws_guide() {
 
 # ---------- 安装 NapCat ----------
 NAPCAT_INSTALLER_URL="https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh"
-NAPCAT_TERMUX_URL="https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.termux.sh"
 
 download_napcat_installer() {
     # 多源下载安装脚本，返回 0 表示成功，文件路径存入 NAPCAT_SH
@@ -614,22 +613,49 @@ install_napcat() {
 
     case "$CURRENT_PLATFORM" in
         "Termux")
-            log "Termux 环境：使用 NapCat 官方 Termux 安装脚本..."
-            if download_napcat_installer "$NAPCAT_TERMUX_URL"; then
-                patch_napcat_script
-                bash "$NAPCAT_SH"
-                local ret=$?
-                rm -f "$NAPCAT_SH"
-                if [ $ret -eq 0 ]; then
-                    success "NapCat 安装脚本执行完成"
-                    show_napcat_ws_guide
-                    start_napcat_and_show_token
-                else
-                    warn "NapCat 安装脚本退出码 $ret，请查看上方输出"
-                fi
-            else
-                error "NapCat 安装脚本下载失败，请检查网络"
+            log "Termux 环境：按官方 Termux 方案安装（proot-distro debian 容器）..."
+            # 以下步骤复刻官方 install.termux.sh，区别: 容器安装失败会自动重试
+            # 1. 准备 proot-distro / screen
+            if ! command -v proot-distro &>/dev/null || ! command -v screen &>/dev/null; then
+                pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
+                pkg install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE" || {
+                    apt update -y 2>&1 | tee -a "$LOG_FILE" && apt install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE"
+                }
             fi
+            command -v proot-distro &>/dev/null || error "proot-distro 安装失败，请手动执行: pkg install proot-distro screen"
+            command -v screen &>/dev/null || error "screen 安装失败，请手动执行: pkg install screen"
+
+            # 2. 安装 debian 容器（GitHub 下载镜像易被重置，失败自动清理重试）
+            if ! proot-distro list 2>/dev/null | grep -q "napcat"; then
+                local container_ok=false
+                for i in 1 2 3; do
+                    log "安装 napcat 容器（尝试 $i/3）..."
+                    proot-distro install debian --override-alias napcat 2>&1 | tee -a "$LOG_FILE" && container_ok=true && break
+                    log "容器安装失败（GitHub 镜像下载易受网络波动影响），清理后重试..."
+                    proot-distro remove napcat 2>/dev/null || true
+                    sleep 3
+                done
+                $container_ok || error "napcat 容器安装失败（已重试 3 次）。网络持续无法下载 Debian 镜像时可稍后再试，或换网络环境（如热点）后重新运行本项"
+            else
+                log "napcat 容器已存在，跳过安装"
+            fi
+
+            # 3. 容器内初始化 NapCat（内部源已替换为 jsDelivr，规避 nclatest 不可达）
+            log "初始化容器内 NapCat（首次较慢，请耐心等待）..."
+            proot-distro sh napcat -- bash -c "apt update -y && \
+                apt install -y sudo curl libgcrypt20 && \
+                curl -fsSL -o napcat.sh https://cdn.jsdelivr.net/gh/NapNeko/NapCat-Installer@main/script/install.sh && \
+                sudo bash napcat.sh --docker n --cli n && \
+                apt autoremove -y && apt clean && rm -rf /tmp/* /var/lib/apt/lists" 2>&1 | tee -a "$LOG_FILE"
+            local ret=${PIPESTATUS[0]}
+            if [ $ret -ne 0 ]; then
+                warn "容器内初始化退出码 $ret，请查看上方输出（多为网络波动，可重新运行本项重试）"
+                return 1
+            fi
+            success "NapCat 安装完成"
+            echo -e "容器数据位置: ${GREEN}$PREFIX/var/lib/proot-distro/installed-rootfs/napcat${NC}"
+            show_napcat_ws_guide
+            start_napcat_and_show_token
             ;;
         "Linux")
             if command -v docker &>/dev/null; then
