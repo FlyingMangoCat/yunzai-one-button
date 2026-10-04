@@ -330,9 +330,9 @@ install_environment() {
                     fi
                     rm -f "$downloaded"
                     sleep 2
-                    # zip 可能带一层顶层目录，两种布局都找
+                    # zip 可能带一层顶层目录，直接搜两级目录定位
                     for p in "/c/Program Files/Redis/redis-server.exe" \
-                             "/c/Program Files/Redis"/**/redis-server.exe; do
+                             $(find "/c/Program Files/Redis" -mindepth 2 -maxdepth 2 -name redis-server.exe 2>/dev/null); do
                         [ -f "$p" ] && redis_exe="$p" && break
                     done
                     if [ -n "$redis_exe" ]; then
