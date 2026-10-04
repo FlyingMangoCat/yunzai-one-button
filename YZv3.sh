@@ -97,7 +97,8 @@ install_environment() {
             command -v git &>/dev/null || error "Git 安装失败"
             # Chromium（体积大易失败，不阻塞主流程）
             if ! command -v chromium &>/dev/null; then
-                pkg install -y chromium 2>&1 | tee -a "$LOG_FILE" || warn "Chromium 安装失败，可稍后手动执行: pkg install -y chromium"
+                pkg install -y chromium 2>&1 | tee -a "$LOG_FILE"
+                [ "${PIPESTATUS[0]}" -ne 0 ] && warn "Chromium 安装失败，可稍后手动执行: pkg install -y chromium"
             fi
             # 启动 Redis
             redis-server --daemonize yes 2>/dev/null || true
@@ -621,9 +622,11 @@ install_napcat() {
             # 1. 准备 proot-distro / screen
             if ! command -v proot-distro &>/dev/null || ! command -v screen &>/dev/null; then
                 pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
-                pkg install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE" || {
-                    apt update -y 2>&1 | tee -a "$LOG_FILE" && apt install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE"
-                }
+                pkg install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE"
+                if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+                    apt update -y 2>&1 | tee -a "$LOG_FILE"
+                    apt install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE"
+                fi
             fi
             command -v proot-distro &>/dev/null || error "proot-distro 安装失败，请手动执行: pkg install proot-distro screen"
             command -v screen &>/dev/null || error "screen 安装失败，请手动执行: pkg install screen"
@@ -632,16 +635,28 @@ install_napcat() {
             # 容器目录新版在 containers/<名>/rootfs，旧版在 installed-rootfs/<名>，两版都判
             local napcat_rootfs_new="$PREFIX/var/lib/proot-distro/containers/napcat"
             local napcat_rootfs_legacy="$PREFIX/var/lib/proot-distro/installed-rootfs/napcat"
-            if [ ! -d "$napcat_rootfs_new" ] && [ ! -d "$napcat_rootfs_legacy" ]; then
+            # rootfs 里真有 /bin/sh 才算装好: 安装中断留下的残缺目录必须清理重装
+            local container_ready=false
+            if [ -e "$napcat_rootfs_new/rootfs/bin/sh" ] || [ -e "$napcat_rootfs_legacy/bin/sh" ]; then
+                container_ready=true
+            elif [ -d "$napcat_rootfs_new" ] || [ -d "$napcat_rootfs_legacy" ]; then
+                warn "检测到残缺的 napcat 容器目录（上次安装中断所致），清理后重装..."
+                proot-distro remove napcat 2>/dev/null || true
+                rm -rf "$napcat_rootfs_new" "$napcat_rootfs_legacy"
+            fi
+            if [ "$container_ready" != "true" ]; then
                 local container_ok=false
                 # 第 1 次走官方 Docker Hub 源；失败后改用实测可用的国内镜像源兜底
                 local image_refs=("debian" "dockerproxy.net/library/debian")
                 for ref in "${image_refs[@]}"; do
                     for i in 1 2 3; do
                         log "安装 napcat 容器（来源 $ref，尝试 $i/3）..."
-                        proot-distro install "$ref" --override-alias napcat 2>&1 | tee -a "$LOG_FILE" && container_ok=true && break
-                        log "容器安装失败（镜像下载易受网络波动影响），清理后重试..."
+                        proot-distro install "$ref" --override-alias napcat 2>&1 | tee -a "$LOG_FILE"
+                        # 管道后 $? 是 tee 的退出码，必须用 PIPESTATUS 取 proot-distro 的真实结果
+                        [ "${PIPESTATUS[0]}" -eq 0 ] && container_ok=true && break
+                        log "容器安装失败，清理后重试..."
                         proot-distro remove napcat 2>/dev/null || true
+                        rm -rf "$napcat_rootfs_new" "$napcat_rootfs_legacy" 2>/dev/null || true
                         sleep 3
                     done
                     $container_ok && break
