@@ -20,11 +20,12 @@ CYAN='\033[0;36m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# 日志文件
-if [ -d "/sdcard" ]; then
+# 日志文件（新版 Android 限制写 /sdcard 根目录，实测可写才用，否则存到家目录）
+if [ -d "/sdcard" ] && echo test > /sdcard/.yzb_write_test 2>/dev/null; then
+    rm -f /sdcard/.yzb_write_test
     LOG_FILE="/sdcard/yunzai_install.log"
 else
-    LOG_FILE="./yunzai_install.log"
+    LOG_FILE="$HOME/yunzai_install.log"
 fi
 
 # ---------- Windows 自动提权 ----------
