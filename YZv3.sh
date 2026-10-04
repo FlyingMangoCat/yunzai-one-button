@@ -630,14 +630,19 @@ install_napcat() {
             local napcat_rootfs="$PREFIX/var/lib/proot-distro/installed-rootfs/napcat"
             if [ ! -d "$napcat_rootfs" ]; then
                 local container_ok=false
-                for i in 1 2 3; do
-                    log "安装 napcat 容器（尝试 $i/3）..."
-                    proot-distro install debian --override-alias napcat 2>&1 | tee -a "$LOG_FILE" && container_ok=true && break
-                    log "容器安装失败（GitHub 镜像下载易受网络波动影响），清理后重试..."
-                    proot-distro remove napcat 2>/dev/null || true
-                    sleep 3
+                # 第 1 次走官方 Docker Hub 源；失败后改用实测可用的国内镜像源兜底
+                local image_refs=("debian" "dockerproxy.net/library/debian")
+                for ref in "${image_refs[@]}"; do
+                    for i in 1 2 3; do
+                        log "安装 napcat 容器（来源 $ref，尝试 $i/3）..."
+                        proot-distro install "$ref" --override-alias napcat 2>&1 | tee -a "$LOG_FILE" && container_ok=true && break
+                        log "容器安装失败（镜像下载易受网络波动影响），清理后重试..."
+                        proot-distro remove napcat 2>/dev/null || true
+                        sleep 3
+                    done
+                    $container_ok && break
                 done
-                $container_ok || error "napcat 容器安装失败（已重试 3 次）。网络持续无法下载 Debian 镜像时可稍后再试，或换网络环境（如热点）后重新运行本项"
+                $container_ok || error "napcat 容器安装失败（官方源+国内镜像源均已重试）。请换网络环境（如热点）后重新运行本项"
             else
                 log "napcat 容器已存在，跳过安装"
             fi
