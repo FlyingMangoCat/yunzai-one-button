@@ -457,6 +457,81 @@ start_yunzai() {
     cd "$YUNZAI_DIR" && node app
 }
 
+# ---------- 查看 NapCat WebUI token ----------
+show_napcat_token() {
+    log "用户选择: 查看 NapCat token"
+    detect_platform
+
+    # 收集各平台常见 webui.json 位置（NapCat 首次启动后才会生成）
+    local candidates=()
+    case "$CURRENT_PLATFORM" in
+        "Termux")
+            candidates=("$HOME/NapCat/config/webui.json" "$HOME/napcat/config/webui.json" "$PREFIX/NapCat/config/webui.json")
+            ;;
+        "Linux")
+            # 官方 Shell 直装默认在 /opt/QQ 下
+            candidates=("/opt/QQ/resources/app/app_launcher/napcat/config/webui.json" "$HOME/NapCat/config/webui.json")
+            ;;
+        *)
+            candidates=()
+            ;;
+    esac
+
+    local found=""
+    for f in "${candidates[@]}"; do
+        if [ -f "$f" ]; then found="$f"; break; fi
+    done
+
+    # 没有在固定位置找到时，兜底全盘搜（限深度，避免卡顿）
+    if [ -z "$found" ]; then
+        log "固定位置未找到 webui.json，尝试搜索（可能较慢）..."
+        case "$CURRENT_PLATFORM" in
+            "Termux") found=$(find "$HOME" -maxdepth 5 -path "*/napcat*/config/webui.json" 2>/dev/null | head -n 1) ;;
+            "Linux")  found=$(find /opt "$HOME" -maxdepth 8 -path "*/napcat*/config/webui.json" 2>/dev/null | head -n 1) ;;
+        esac
+    fi
+
+    if [ -z "$found" ]; then
+        warn "未找到 NapCat 配置文件（config/webui.json）"
+        echo -e "${YELLOW}可能原因: NapCat 还没启动过（token 首次启动才生成），或安装在非常规目录${NC}"
+        echo -e "${YELLOW}请先启动一次 NapCat，再重新选择本项；或手动查看启动日志中的 WebUI token${NC}"
+        return 1
+    fi
+
+    log "找到配置文件: $found"
+    local token=$(grep -o '"token"[[:space:]]*:[[:space:]]*"[^"]*"' "$found" | head -n 1 | sed 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+    if [ -z "$token" ]; then
+        warn "配置文件里没读到 token，请直接打开查看: $found"
+        return 1
+    fi
+    success "NapCat WebUI token: $token"
+    echo -e "${GREEN}登录 WebUI 时输入上面的 token 即可${NC}"
+}
+
+# ---------- 启动 NapCat（后台）并抓取 token ----------
+start_napcat_and_show_token() {
+    echo -e "${YELLOW}是否现在启动 NapCat? 启动后才能生成 WebUI token${NC}"
+    read -p "立即启动 NapCat? (y/回车): " start_now
+    [ "$start_now" != "y" ] && return 0
+
+    # 找启动命令：官方安装脚本会提供 napcat 命令
+    local start_cmd=""
+    if command -v napcat &>/dev/null; then
+        start_cmd="napcat"
+    elif command -v qq &>/dev/null; then
+        start_cmd="qq --no-sandbox"
+    else
+        warn "未找到 napcat 启动命令，请按安装输出的说明手动启动，启动后再选菜单 6 查看 token"
+        return 1
+    fi
+
+    log "后台启动 NapCat: $start_cmd"
+    nohup $start_cmd >/dev/null 2>&1 &
+    log "等待 NapCat 首次初始化（生成 token）..."
+    sleep 8
+    show_napcat_token
+}
+
 # ---------- NapCat 反向 WS 配置提示 ----------
 show_napcat_ws_guide() {
     echo -e "\n${CYAN}========== NapCat 反向 WS 配置（连接云崽） ==========${NC}"
@@ -508,6 +583,7 @@ install_napcat() {
                 if [ $ret -eq 0 ]; then
                     success "NapCat 安装脚本执行完成"
                     show_napcat_ws_guide
+                    start_napcat_and_show_token
                 else
                     warn "NapCat 安装脚本退出码 $ret，请查看上方输出"
                 fi
@@ -530,7 +606,13 @@ install_napcat() {
                 bash "$NAPCAT_SH" "${args[@]}"
                 local ret=$?
                 rm -f "$NAPCAT_SH"
-                [ $ret -eq 0 ] && success "NapCat 安装脚本执行完成" || warn "NapCat 安装脚本退出码 $ret，请查看上方输出"
+                if [ $ret -eq 0 ]; then
+                    success "NapCat 安装脚本执行完成"
+                    show_napcat_ws_guide
+                    start_napcat_and_show_token
+                else
+                    warn "NapCat 安装脚本退出码 $ret，请查看上方输出"
+                fi
             else
                 error "NapCat 安装脚本下载失败，请检查网络"
             fi
@@ -575,8 +657,9 @@ show_menu() {
     echo -e "                3. 启动云崽${NC}"
     echo -e "                4. 进入云崽根目录${NC}"
     echo -e "                5. 安装 NapCat${NC}"
-    echo -e "                6. 使用帮助${NC}"
-    echo -e "                7. 技术支持${NC}"
+    echo -e "                6. 查看 NapCat token${NC}"
+    echo -e "                7. 使用帮助${NC}"
+    echo -e "                8. 技术支持${NC}"
     if [ -d "$YUNZAI_DIR" ]; then
         echo -e "${GREEN}当前已安装云崽${NC}"
     fi
@@ -650,8 +733,9 @@ main() {
             3) start_yunzai; read -p "按回车键返回菜单..." ;;
             4) enter_yunzai_dir ;;
             5) install_napcat; read -p "按回车键返回菜单..." ;;
-            6) show_help; read -p "按回车键返回菜单..." ;;
-            7) show_support; read -p "按回车键返回菜单..." ;;
+            6) show_napcat_token; read -p "按回车键返回菜单..." ;;
+            7) show_help; read -p "按回车键返回菜单..." ;;
+            8) show_support; read -p "按回车键返回菜单..." ;;
             *) warn "请输入正确选项"; sleep 1 ;;
         esac
     done
