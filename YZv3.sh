@@ -626,7 +626,9 @@ install_napcat() {
             command -v screen &>/dev/null || error "screen 安装失败，请手动执行: pkg install screen"
 
             # 2. 安装 debian 容器（GitHub 下载镜像易被重置，失败自动清理重试）
-            if ! proot-distro list 2>/dev/null | grep -q "napcat"; then
+            # 以 installed-rootfs/napcat 目录是否存在为准（不依赖 list 输出格式，新旧版 proot-distro 通用）
+            local napcat_rootfs="$PREFIX/var/lib/proot-distro/installed-rootfs/napcat"
+            if [ ! -d "$napcat_rootfs" ]; then
                 local container_ok=false
                 for i in 1 2 3; do
                     log "安装 napcat 容器（尝试 $i/3）..."
