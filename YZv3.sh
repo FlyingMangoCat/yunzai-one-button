@@ -719,10 +719,23 @@ start_yunzai() {
     # the provided platform), 用系统 chromium 替代; puppeteer 24+ 原生读此变量
     if [ "$IS_TERMUX" = true ]; then
         local chromium_bin="/data/data/com.termux/files/usr/bin/chromium-browser"
+        # 没有就自动补装（Termux chromium 在 x11 仓库；二进制名是 chromium-browser）
+        if [ ! -x "$chromium_bin" ]; then
+            log "未找到系统 chromium，自动安装（x11 仓库）..."
+            pkg install -y x11-repo 2>&1 | tee -a "$LOG_FILE" || true
+            local x11src="$PREFIX/etc/apt/sources.list.d/x11.list"
+            if [ -f "$x11src" ] && ! grep -q mirrors.bfsu.edu.cn "$x11src"; then
+                cp "$x11src" "$x11src.bak.yzb" 2>/dev/null || true
+                echo "deb https://mirrors.bfsu.edu.cn/termux/apt/termux-x11 x11 main" > "$x11src"
+            fi
+            pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
+            pkg install -y chromium 2>&1 | tee -a "$LOG_FILE" || true
+        fi
         if [ -x "$chromium_bin" ]; then
             export PUPPETEER_EXECUTABLE_PATH="$chromium_bin"
+            success "图片渲染使用系统 chromium"
         else
-            warn "未找到系统 chromium，图片渲染将失败；执行: pkg install chromium -y 后重新启动"
+            warn "chromium 自动安装失败，图片渲染不可用；手动执行: pkg install x11-repo && pkg update && pkg install chromium"
         fi
     fi
     echo -e "${GREEN}启动云崽...${NC}"
