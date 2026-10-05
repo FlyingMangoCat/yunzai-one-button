@@ -4,7 +4,7 @@
 
 #### 说明
 
-Yunzai-Bot安卓手机一键部署
+Windows / Linux / Mac（缺少测试资料） / Android手机（Termux）平台Yunzai-Bot一键部署
 
 #### 支持版本：
 | …… | v2(理论上可以，不建议安装) | 喵版云崽(v3) | v3芒果猫版云崽(v3) | …… |
@@ -18,7 +18,7 @@ Yunzai-Bot安卓手机一键部署
 
 #### 部署工具
 
-必备[Termux](https://github.com/termux/termux-app/releases/download/v0.118.0/termux-app_v0.118.0+github-debug_arm64-v8a.apk)
+手机部署必备[Termux](https://github.com/termux/termux-app/releases/download/v0.118.0/termux-app_v0.118.0+github-debug_arm64-v8a.apk)
 
 推荐[滑动验证助手](https://maupdate.rainchan.win/txcaptcha.apk) 
 
