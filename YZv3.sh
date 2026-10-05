@@ -484,10 +484,18 @@ install_yunzai() {
         log "已切换 npm 源为 npmmirror 镜像"
     fi
     local node_ver=$(node -v | sed 's/v//' | cut -d. -f1)
+    # Termux/Android 文件系统不支持新版 pnpm 的 lock_shared()，必须用 pnpm@8；
+    # 已装了新版 pnpm 的也要降级（不能只在未安装时固定）
+    if [ "$IS_TERMUX" = "true" ] && command -v pnpm &>/dev/null; then
+        local pnpm_major=$(pnpm --version 2>/dev/null | cut -d. -f1)
+        if [ -n "$pnpm_major" ] && [ "$pnpm_major" -gt 8 ]; then
+            log "检测到 pnpm v$pnpm_major（Termux 不支持 lock_shared），降级为 pnpm@8..."
+            npm install -g pnpm@8 2>&1 | tee -a "$LOG_FILE" || warn "pnpm 降级失败，将继续尝试现有版本"
+        fi
+    fi
     if ! command -v pnpm &>/dev/null; then
         local pnpm_ver="pnpm@10"
         [ "$node_ver" -ge 22 ] && pnpm_ver="pnpm"
-        # Termux/Android 文件系统不支持新版 pnpm 的 lock_shared()，固定用 pnpm@8
         if [ "$IS_TERMUX" = "true" ]; then
             pnpm_ver="pnpm@8"
             log "检测到 Termux 环境，使用 pnpm@8"
