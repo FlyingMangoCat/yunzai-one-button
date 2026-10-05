@@ -154,7 +154,9 @@ install_environment() {
             command -v node &>/dev/null || error "Node.js 安装失败，请检查 pkg 源和网络（详见日志 $LOG_FILE）"
             command -v git &>/dev/null || error "Git 安装失败"
             # Chromium 在 x11 仓库（main 仓库没有），需先启用 x11-repo；体积大易失败，不阻塞主流程
-            if ! command -v chromium &>/dev/null; then
+            # 检测用实际二进制名 chromium-browser（Termux 的 chromium 包装的就是它），
+            # 不能用 command -v chromium（匹配不上会漏装）
+            if [ ! -x "$PREFIX/bin/chromium-browser" ]; then
                 pkg install -y x11-repo 2>&1 | tee -a "$LOG_FILE" || true
                 # x11 源默认指向官方 CDN，切到实测可用的 BFSU 镜像（tuna 未同步 x11）
                 local x11src="$PREFIX/etc/apt/sources.list.d/x11.list"
@@ -715,8 +717,9 @@ start_yunzai() {
     fi
     # 联动拉起 NapCat（未安装/未配置仅提示，不阻断云崽启动）
     start_napcat_and_show_token auto || true
-    # Termux: puppeteer 无 android/arm64 预编译浏览器(Cannot download a binary for
-    # the provided platform), 用系统 chromium 替代; puppeteer 24+ 原生读此变量
+    # 系统浏览器优先: puppeteer 24+ 原生读 PUPPETEER_EXECUTABLE_PATH。
+    # Termux 无 android/arm64 预编译浏览器, 必须用系统 chromium(缺则自动补装);
+    # Linux/macOS 有系统 chromium 也优先用, puppeteer 自下载失败时不至于渲染不可用
     if [ "$IS_TERMUX" = true ]; then
         local chromium_bin="/data/data/com.termux/files/usr/bin/chromium-browser"
         # 没有就自动补装（Termux chromium 在 x11 仓库；二进制名是 chromium-browser）
@@ -736,6 +739,16 @@ start_yunzai() {
             success "图片渲染使用系统 chromium"
         else
             warn "chromium 自动安装失败，图片渲染不可用；手动执行: pkg install x11-repo && pkg update && pkg install chromium"
+        fi
+    elif [ "$CURRENT_PLATFORM" = "Linux" ] || [ "$CURRENT_PLATFORM" = "macOS" ]; then
+        # 二进制名各发行版不同: Debian 系 chromium, Ubuntu 系 chromium-browser, macOS brew 是 chromium
+        local chromium_bin=""
+        for cb in "$(command -v chromium 2>/dev/null)" "$(command -v chromium-browser 2>/dev/null)"; do
+            [ -x "$cb" ] && chromium_bin="$cb" && break
+        done
+        if [ -n "$chromium_bin" ]; then
+            export PUPPETEER_EXECUTABLE_PATH="$chromium_bin"
+            log "图片渲染优先使用系统 chromium: $chromium_bin"
         fi
     fi
     echo -e "${GREEN}启动云崽...${NC}"
