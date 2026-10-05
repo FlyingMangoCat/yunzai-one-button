@@ -9,7 +9,12 @@
 VERSION="3.0.0"
 SUPPORT_GROUP="658720198"
 # 脚本所在目录（锚定安装位置，从任何目录启动脚本都能找到已安装的云崽）
+# 注意: 用 bash <(curl ...) 管道方式运行时 BASH_SOURCE 指向 /proc/self/fd/xx（虚拟
+# 文件，无法建目录），此时回退到家目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "$PWD")"
+case "$SCRIPT_DIR" in
+    /proc/*|/dev/*) SCRIPT_DIR="$HOME" ;;
+esac
 YUNZAI_DIR="$SCRIPT_DIR/yunzai-one-button-fmc"
 CURRENT_PLATFORM=""
 CURRENT_OS=""
