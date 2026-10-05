@@ -536,16 +536,21 @@ install_yunzai() {
     fi
     # node-addon-api 4.x 的 napi.h 有 clang 21 不接受的类内静态初始化
     # (unknown_array_type = static_cast<napi_typedarray_type>(-1), 枚举值越界),
-    # 上游 8.x 已移除该写法; Node-API ABI 稳定, 头文件可安全升级,
-    # 用 pnpm overrides 强制全树使用新版(真机日志实锤 napi.h:1147 报错)
+    # 上游 8.x 已移除该写法; Node-API ABI 稳定, 头文件可安全升级。
+    # sqlite3 本体则直接用打补丁的重打包版 @flyingmangocat/sqlite3-termux
+    # (statement.cc 两处 SQLITE_TRANSIENT 已显式强转, 免去装后补丁+重编译),
+    # 两者都经 pnpm overrides 全树强制(仅 Termux 注入, 其他平台保持原版)
     if [ "$IS_TERMUX" = true ] && command -v node &>/dev/null; then
         node -e "
 const fs = require('fs');
 const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 p.pnpm = p.pnpm || {};
-p.pnpm.overrides = Object.assign({}, p.pnpm.overrides, {'node-addon-api': '^8.9.2'});
+p.pnpm.overrides = Object.assign({}, p.pnpm.overrides, {
+  'node-addon-api': '^8.9.2',
+  'sqlite3': 'npm:@flyingmangocat/sqlite3-termux@5.1.6-termux.1'
+});
 fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
-console.log('已注入 pnpm.overrides: node-addon-api ^8.9.2');
+console.log('已注入 pnpm.overrides: node-addon-api ^8.9.2 + sqlite3 -> @flyingmangocat/sqlite3-termux');
 " 2>&1 | tee -a "$LOG_FILE"
     fi
     local ok=false
@@ -558,13 +563,12 @@ console.log('已注入 pnpm.overrides: node-addon-api ^8.9.2');
         sleep 3
     done
     $ok || error "依赖安装失败，请检查网络连接"
-    # sqlite3 源码补丁: 5.1.6 的 statement.cc 两处 SQLITE_TRANSIENT 在 clang 21 下
-    # 报 invalid conversion 'int' to 'sqlite3_destructor_type'，调用点显式强转修复；
-    # 必须在 install 之后打（源码 install 时才解包），打完重编译
+    # Termux 兜底: 若 overrides 方式编译仍失败, 回退到旧路——对树中 sqlite3
+    # 源码打补丁后重编译（patch_sqlite_sources 幂等）
     if [ "$IS_TERMUX" = true ]; then
-        patch_sqlite_sources "$YUNZAI_DIR"
         if ! node -e "require('sqlite3')" >/dev/null 2>&1; then
-            log "重编译 sqlite3（打补丁后）..."
+            log "npm 包方式编译未通过，回退源码补丁方案..."
+            patch_sqlite_sources "$YUNZAI_DIR"
             env "${sqlite_env[@]}" pnpm rebuild sqlite3 2>&1 | tee -a "$LOG_FILE" || true
         fi
     fi
