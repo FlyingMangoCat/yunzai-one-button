@@ -527,6 +527,20 @@ install_yunzai() {
             sqlite_env=(SQLITE3_INCLUDE_DIR="$PREFIX/include" SQLITE3_LIB_DIR="$PREFIX/lib" npm_config_build_from_source=true)
         fi
     fi
+    # node-addon-api 4.x 的 napi.h 有 clang 21 不接受的类内静态初始化
+    # (unknown_array_type = static_cast<napi_typedarray_type>(-1), 枚举值越界),
+    # 上游 8.x 已移除该写法; Node-API ABI 稳定, 头文件可安全升级,
+    # 用 pnpm overrides 强制全树使用新版(真机日志实锤 napi.h:1147 报错)
+    if [ "$IS_TERMUX" = true ] && command -v node &>/dev/null; then
+        node -e "
+const fs = require('fs');
+const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+p.pnpm = p.pnpm || {};
+p.pnpm.overrides = Object.assign({}, p.pnpm.overrides, {'node-addon-api': '^8.9.2'});
+fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
+console.log('已注入 pnpm.overrides: node-addon-api ^8.9.2');
+" 2>&1 | tee -a "$LOG_FILE"
+    fi
     local ok=false
     for i in 1 2 3; do
         env "${sqlite_env[@]}" pnpm install 2>&1 || env "${sqlite_env[@]}" pnpm install --ignore-scripts 2>&1 || true
