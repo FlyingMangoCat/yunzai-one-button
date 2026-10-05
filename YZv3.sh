@@ -489,9 +489,22 @@ install_yunzai() {
     cd "$YUNZAI_DIR"
     log "安装依赖..."
     rm -f package-lock.json
+    # Termux 预防性配置: sqlite3 自带的 sqlite3.c 以 C++ 编译时报
+    # invalid conversion 'int' to 'sqlite3_destructor_type'（SQLITE_TRANSIENT 宏），
+    # 提前装系统级 libsqlite 并让 node-gyp 链接系统库，从源头绕开（termux#20678）
+    local sqlite_env=()
+    if [ "$IS_TERMUX" = true ]; then
+        if ! [ -f "$PREFIX/lib/libsqlite3.so" ]; then
+            log "安装系统级 SQLite 库（编译 sqlite3 用）..."
+            pkg install -y libsqlite 2>&1 | tee -a "$LOG_FILE" || true
+        fi
+        if [ -f "$PREFIX/lib/libsqlite3.so" ]; then
+            sqlite_env=(SQLITE3_INCLUDE_DIR="$PREFIX/include" SQLITE3_LIB_DIR="$PREFIX/lib" npm_config_build_from_source=true)
+        fi
+    fi
     local ok=false
     for i in 1 2 3; do
-        pnpm install 2>&1 || pnpm install --ignore-scripts 2>&1 || true
+        env "${sqlite_env[@]}" pnpm install 2>&1 || env "${sqlite_env[@]}" pnpm install --ignore-scripts 2>&1 || true
         if [ -d "node_modules" ]; then
             ok=true && break
         fi
@@ -513,7 +526,7 @@ install_yunzai() {
 
     # 4.9 安装插件依赖
     log "安装插件依赖..."
-    pnpm install 2>/dev/null || pnpm install --ignore-scripts 2>/dev/null || true
+    env "${sqlite_env[@]}" pnpm install 2>/dev/null || env "${sqlite_env[@]}" pnpm install --ignore-scripts 2>/dev/null || true
     if [ -d "node_modules" ]; then
         success "插件依赖安装完成"
     else
@@ -621,11 +634,24 @@ start_yunzai() {
     if [ -d "$target/node_modules" ] && ! (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1); then
         log "检测到 sqlite3 模块不可用，自动重编译..."
         if command -v pnpm &>/dev/null; then
+            # 第一级: 常规 rebuild（NDK 路径已由 ~/.gyp/include.gypi 兜底）
             (cd "$target" && pnpm rebuild sqlite3) 2>&1 | tee -a "$LOG_FILE"
+            # 第二级: 若仍失败（报 invalid conversion 'int' to 'sqlite3_destructor_type'
+            # 等 C++ 编译错误），改链 Termux 系统级 libsqlite 编译，完全绕开
+            # 自带 sqlite3.c 源码（termux-packages#20678 官方确认方案）
+            if ! (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1) && [ "$IS_TERMUX" = true ]; then
+                log "常规编译失败，改用系统级 SQLite 库编译..."
+                pkg install -y libsqlite 2>&1 | tee -a "$LOG_FILE" || true
+                (cd "$target" && \
+                    SQLITE3_INCLUDE_DIR="$PREFIX/include" \
+                    SQLITE3_LIB_DIR="$PREFIX/lib" \
+                    npm_config_build_from_source=true \
+                    pnpm rebuild sqlite3) 2>&1 | tee -a "$LOG_FILE"
+            fi
             if (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1); then
                 success "sqlite3 重编译成功"
             else
-                warn "sqlite3 仍不可用，请手动执行: pkg install python make clang binutils -y 后重新选择启动"
+                warn "sqlite3 仍不可用，请把上方 gyp/编译报错完整反馈给脚本维护者"
             fi
         else
             warn "未检测到 pnpm，无法自动重编译 sqlite3，请先通过菜单 1/2 安装依赖"
