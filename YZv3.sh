@@ -715,6 +715,16 @@ start_yunzai() {
     fi
     # 联动拉起 NapCat（未安装/未配置仅提示，不阻断云崽启动）
     start_napcat_and_show_token auto || true
+    # Termux: puppeteer 无 android/arm64 预编译浏览器(Cannot download a binary for
+    # the provided platform), 用系统 chromium 替代; puppeteer 24+ 原生读此变量
+    if [ "$IS_TERMUX" = true ]; then
+        local chromium_bin="/data/data/com.termux/files/usr/bin/chromium-browser"
+        if [ -x "$chromium_bin" ]; then
+            export PUPPETEER_EXECUTABLE_PATH="$chromium_bin"
+        else
+            warn "未找到系统 chromium，图片渲染将失败；执行: pkg install chromium -y 后重新启动"
+        fi
+    fi
     echo -e "${GREEN}启动云崽...${NC}"
     cd "$target" && node app
 }
