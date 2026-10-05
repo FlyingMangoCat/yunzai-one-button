@@ -83,7 +83,7 @@ patch_sqlite_sources() {
             log "已补丁 sqlite3 源码: $f"
             patched=$((patched+1))
         fi
-    done < <(find "$base/node_modules/.pnpm" -maxdepth 4 -path "*sqlite3*/src/statement.cc" 2>/dev/null)
+    done < <(find "$base/node_modules/.pnpm" -name statement.cc -path "*sqlite3*/src/*" 2>/dev/null)
     [ $patched -gt 0 ] && success "sqlite3 源码补丁完成（$patched 处）" || log "sqlite3 源码无需补丁"
 }
 
