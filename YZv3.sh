@@ -53,6 +53,15 @@ error() { log "${RED}[ERROR] $1${NC}"; exit 1; }
 ensure_termux_mirror() {
     local src="$PREFIX/etc/apt/sources.list"
     [ -f "$src" ] || return 0
+    # 空文件/无有效行会导致 pkg 报 "No mirror or mirror group selected"，先恢复备份
+    if [ ! -s "$src" ] || ! grep -q "^deb " "$src"; then
+        if [ -s "$src.bak.yzb" ]; then
+            log "sources.list 为空或损坏，从备份恢复..."
+            cp "$src.bak.yzb" "$src"
+        else
+            echo "deb https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main stable main" > "$src"
+        fi
+    fi
     if grep -q "mirrors.tuna.tsinghua.edu.cn\|mirrors.bfsu.edu.cn\|mirrors.ustc.edu.cn" "$src"; then
         return 0
     fi
@@ -136,14 +145,28 @@ install_environment() {
                 [ "${PIPESTATUS[0]}" -ne 0 ] && warn "Chromium 安装失败，可稍后手动执行: pkg install x11-repo && pkg update && pkg install chromium"
             fi
             # 中文字体（Termux 仓库无 wqy 字体包，直接下载字体文件；缺失会导致渲染图片中文乱码）
+            # 三源依次尝试: jsDelivr → gh-proxy → GitHub raw，全部实测可用；TTF 魔数(00 01 00 00)校验
             if ! fc-list 2>/dev/null | grep -qi "simhei\|wqy\|noto.*cjk"; then
                 mkdir -p "$PREFIX/share/fonts"
-                curl -fL -# --connect-timeout 15 --max-time 300 \
-                    -o "$PREFIX/share/fonts/SimHei.ttf" \
-                    "https://cdn.jsdelivr.net/gh/StellarCN/scp_zh@master/fonts/SimHei.ttf" \
-                    && fc-cache -f >/dev/null 2>&1 \
-                    && success "中文字体 SimHei 安装完成" \
-                    || warn "中文字体下载失败，渲染图片中文可能乱码，可稍后重试本项"
+                local font_urls=(
+                    "https://cdn.jsdelivr.net/gh/StellarCN/scp_zh@master/fonts/SimHei.ttf"
+                    "https://gh-proxy.com/https://raw.githubusercontent.com/StellarCN/scp_zh/master/fonts/SimHei.ttf"
+                    "https://raw.githubusercontent.com/StellarCN/scp_zh/master/fonts/SimHei.ttf"
+                )
+                local font_ok=false
+                for furl in "${font_urls[@]}"; do
+                    curl -fL --connect-timeout 15 --max-time 300 \
+                        -o "$PREFIX/share/fonts/SimHei.ttf" "$furl" 2>/dev/null || continue
+                    if [ "$(head -c 4 "$PREFIX/share/fonts/SimHei.ttf" 2>/dev/null | od -An -tx1 | tr -d ' \n')" = "00010000" ]; then
+                        font_ok=true && break
+                    fi
+                done
+                if $font_ok && fc-cache -f >/dev/null 2>&1; then
+                    success "中文字体 SimHei 安装完成"
+                else
+                    rm -f "$PREFIX/share/fonts/SimHei.ttf"
+                    warn "中文字体下载失败，渲染图片中文可能乱码，可稍后重试本项"
+                fi
             fi
             # node-gyp 在 Android 上编译原生模块(sqlite3/better-sqlite3 等)会因缺
             # android_ndk_path 变量报 gyp configure error（termux-packages#19522/#20717
@@ -152,6 +175,17 @@ install_environment() {
                 mkdir -p "$HOME/.gyp"
                 echo "{'variables': {'android_ndk_path': ''}}" > "$HOME/.gyp/include.gypi"
                 success "已写入 gyp 全局配置，原生模块（sqlite3 等）可正常编译"
+            fi
+            # Termux 的 python 已是 3.12+（distutils 被移除），而旧版 node-gyp(v9.x)
+            # 编译期仍 import distutils，缺失即报 ModuleNotFoundError；
+            # setuptools 提供兼容层，装上后 node-gyp 可正常 configure
+            if command -v python &>/dev/null && ! python -c "import distutils" 2>/dev/null; then
+                log "Python 无 distutils（3.12+ 已移除），安装 setuptools 兼容层..."
+                if ! command -v pip &>/dev/null; then
+                    pkg install -y python-pip 2>&1 | tee -a "$LOG_FILE" || true
+                fi
+                pip install --upgrade setuptools 2>&1 | tee -a "$LOG_FILE" || \
+                    warn "setuptools 安装失败，sqlite3 编译可能仍报 distutils 错误"
             fi
             # 启动 Redis
             redis-server --daemonize yes 2>/dev/null || true
