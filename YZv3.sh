@@ -70,6 +70,23 @@ ensure_termux_mirror() {
     echo "deb https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main stable main" > "$src"
 }
 
+# ---------- sqlite3 源码补丁（Termux/clang 21 专用） ----------
+# sqlite3@5.1.6 的 statement.cc 两处 SQLITE_TRANSIENT 在 clang 21 下报
+# invalid conversion 'int' to 'sqlite3_destructor_type'，
+# 在调用点补显式强转修复；幂等，已打过的不重复处理
+patch_sqlite_sources() {
+    local base="$1"
+    local patched=0
+    while IFS= read -r f; do
+        if grep -q "SQLITE_TRANSIENT" "$f" && ! grep -q "sqlite3_destructor_type)-1" "$f"; then
+            sed -i 's/SQLITE_TRANSIENT)/((sqlite3_destructor_type)-1))/g' "$f"
+            log "已补丁 sqlite3 源码: $f"
+            patched=$((patched+1))
+        fi
+    done < <(find "$base/node_modules/.pnpm" -maxdepth 4 -path "*sqlite3*/src/statement.cc" 2>/dev/null)
+    [ $patched -gt 0 ] && success "sqlite3 源码补丁完成（$patched 处）" || log "sqlite3 源码无需补丁"
+}
+
 # ---------- 1. 获取权限 ----------
 get_permissions() {
     log "获取系统权限..."
@@ -512,6 +529,16 @@ install_yunzai() {
         sleep 3
     done
     $ok || error "依赖安装失败，请检查网络连接"
+    # sqlite3 源码补丁: 5.1.6 的 statement.cc 两处 SQLITE_TRANSIENT 在 clang 21 下
+    # 报 invalid conversion 'int' to 'sqlite3_destructor_type'，调用点显式强转修复；
+    # 必须在 install 之后打（源码 install 时才解包），打完重编译
+    if [ "$IS_TERMUX" = true ]; then
+        patch_sqlite_sources "$YUNZAI_DIR"
+        if ! node -e "require('sqlite3')" >/dev/null 2>&1; then
+            log "重编译 sqlite3（打补丁后）..."
+            env "${sqlite_env[@]}" pnpm rebuild sqlite3 2>&1 | tee -a "$LOG_FILE" || true
+        fi
+    fi
     success "依赖安装完成"
 
     # 4.8 安装插件
@@ -634,6 +661,8 @@ start_yunzai() {
     if [ -d "$target/node_modules" ] && ! (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1); then
         log "检测到 sqlite3 模块不可用，自动重编译..."
         if command -v pnpm &>/dev/null; then
+            # 先补丁源码再编译（clang 21 下 SQLITE_TRANSIENT 报类型转换错误）
+            patch_sqlite_sources "$target"
             # 第一级: 常规 rebuild（NDK 路径已由 ~/.gyp/include.gypi 兜底）
             (cd "$target" && pnpm rebuild sqlite3) 2>&1 | tee -a "$LOG_FILE"
             # 第二级: 若仍失败（报 invalid conversion 'int' to 'sqlite3_destructor_type'
