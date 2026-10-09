@@ -964,6 +964,21 @@ start_napcat_and_show_token() {
                         return 1
                     }
                     sleep 10
+                    # 与安装路径同款存活自检: screen 会话死了说明 QQ 启动即崩，
+                    # 自动回显退出前日志，不留给用户手动抓
+                    if ! "$screen_bin" -ls 2>/dev/null | grep -E "[0-9]+\.napcat[[:space:]]" | grep -vqE "\([Dd]ead|\?\?\?\)"; then
+                        warn "NapCat 托管重启后随即退出（screen 会话已死），退出前日志如下："
+                        local crash_log
+                        crash_log=$("$pd_bin" sh napcat -- tail -n 30 /root/napcat.log 2>/dev/null)
+                        if [ -n "$crash_log" ]; then
+                            echo -e "${YELLOW}---------- NapCat 退出前日志（最后 30 行） ----------${NC}"
+                            echo "$crash_log"
+                            echo -e "${YELLOW}----------------------------------------------------${NC}"
+                        else
+                            warn "未能读取崩溃日志（napcat.log 为空或不存在）"
+                        fi
+                        return 1
+                    fi
                 else
                     log "NapCat 已在后台运行（screen 会话 napcat）"
                 fi
