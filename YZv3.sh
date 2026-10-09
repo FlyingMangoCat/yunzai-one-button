@@ -923,11 +923,14 @@ start_napcat_and_show_token() {
             if screen -ls 2>/dev/null | grep -E "[0-9]+\.napcat[[:space:]]" | grep -vqE "\([Dd]ead|[Dd]etached.*[Dd]ead|\?\?\?\)"; then
                 log "NapCat 已在后台运行（screen 会话 napcat）"
                 [ "$mode" != "auto" ] && echo -e "查看输出: ${GREEN}screen -r napcat${NC}，离开按 ${GREEN}Ctrl+A 再按 D${NC}"
+                # 一键启动联动场景也输出 token（进程已在跑，无需再等初始化）
+                [ "$mode" = "auto" ] && show_napcat_token
                 return 0
             fi
             # 登录会话保存在容器内，重启 NapCat 会自动快速登录，无需额外参数
+            # 输出同时落盘到容器 /root/napcat.log，崩溃后可直接回看退出前日志
             log "后台启动 NapCat（screen 会话 napcat）..."
-            screen -dmS napcat bash -c "proot-distro sh napcat -- bash -c \"xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox\"" || {
+            screen -dmS napcat bash -c "proot-distro sh napcat -- bash -c 'xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox 2>&1 | tee /root/napcat.log'" || {
                 warn "启动失败，请手动执行:"
                 echo -e "${GREEN}screen -dmS napcat bash -c 'proot-distro sh napcat -- bash -c \"xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox\"'${NC}"
                 return 1
@@ -937,7 +940,16 @@ start_napcat_and_show_token() {
             # 启动后确认进程真的活着（screen 创建成功不代表容器内 QQ 没崩）
             sleep 5
             if ! screen -ls 2>/dev/null | grep -E "[0-9]+\.napcat[[:space:]]" | grep -vqE "\([Dd]ead|\?\?\?\)"; then
-                warn "NapCat 启动后随即退出（screen 会话已死），请执行 screen -r napcat 查看崩溃日志"
+                warn "NapCat 启动后随即退出（screen 会话已死），退出前日志如下："
+                local crash_log
+                crash_log=$(proot-distro sh napcat -- tail -n 30 /root/napcat.log 2>/dev/null)
+                if [ -n "$crash_log" ]; then
+                    echo -e "${YELLOW}---------- NapCat 退出前日志（最后 30 行） ----------${NC}"
+                    echo "$crash_log"
+                    echo -e "${YELLOW}----------------------------------------------------${NC}"
+                else
+                    warn "未能读取崩溃日志（napcat.log 为空或不存在）"
+                fi
                 return 1
             fi
             ;;
@@ -966,6 +978,9 @@ start_napcat_and_show_token() {
 
     if [ "$mode" = "auto" ]; then
         log "NapCat 已联动拉起"
+        # 一键启动联动场景同样输出 token（新启动需等 WebUI 初始化生成/读取）
+        sleep 8
+        show_napcat_token || true
         return 0
     fi
     log "等待 NapCat 首次初始化（生成 token）..."
