@@ -878,13 +878,11 @@ show_napcat_token() {
     if [ "$CURRENT_PLATFORM" = "Termux" ]; then
         panel_url=$("$pd_read" sh napcat -- bash -c "
             grep -ihE 'Panel Url' /root/napcat.log 2>/dev/null;
-            cat /root/Napcat/opt/QQ/resources/app/app_launcher/napcat/logs/*.log 2>/dev/null;
-            find /root/Napcat -name '*.log' -exec grep -ihE 'Panel Url' {} + 2>/dev/null
+            find /root -maxdepth 6 -name '*.log' -exec grep -ihE 'Panel Url' {} + 2>/dev/null
         " 2>/dev/null | grep -ihE "Panel Url" | tail -n 1 | grep -oE "https?://[^[:space:]]+" | tr -d '\r')
     elif [ "$CURRENT_PLATFORM" = "Linux" ]; then
         panel_url=$( { grep -ihE "Panel Url" /root/napcat.log 2>/dev/null;
-                       cat /opt/QQ/resources/app/app_launcher/napcat/logs/*.log 2>/dev/null;
-                       find /opt/QQ/resources/app/app_launcher/napcat -name '*.log' -exec grep -ihE 'Panel Url' {} + 2>/dev/null; } \
+                       find /root/.config/NapCat /opt/QQ/resources/app/app_launcher/napcat -maxdepth 4 -name '*.log' -exec grep -ihE 'Panel Url' {} + 2>/dev/null; } \
                      | tail -n 1 | grep -oE "https?://[^[:space:]]+" | tr -d '\r')
     fi
     if [ -n "$panel_url" ]; then
