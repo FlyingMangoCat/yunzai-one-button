@@ -867,7 +867,24 @@ show_napcat_token() {
         return 1
     fi
 
-    log "找到配置文件: $found"
+    # 优先从运行日志抓权威登录链接（token 可能随扫码刷新, 日志里的
+    # WebUi Local Panel Url 是当前实例唯一权威的地址+密钥, 整条粘进浏览器即可）
+    local panel_url=""
+    case "$CURRENT_PLATFORM" in
+        "Termux")
+            panel_url=$(proot-distro sh napcat -- grep -ihE "Panel Url" /root/napcat.log 2>/dev/null | tail -n 1 | grep -oE "https?://[^[:space:]]+")
+            ;;
+        "Linux")
+            panel_url=$(grep -ihE "Panel Url" /root/napcat.log 2>/dev/null | tail -n 1 | grep -oE "https?://[^[:space:]]+")
+            ;;
+    esac
+    if [ -n "$panel_url" ]; then
+        success "NapCat WebUI 登录链接（整条复制到浏览器打开，无需手输 token）:"
+        echo -e "${GREEN}$panel_url${NC}"
+        return 0
+    fi
+
+    log "未从运行日志读到登录链接，回退读取配置文件: $found"
     local token=$(grep -o '"token"[[:space:]]*:[[:space:]]*"[^"]*"' "$found" | head -n 1 | sed 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
     if [ -z "$token" ]; then
         warn "配置文件里没读到 token，请直接打开查看: $found"
