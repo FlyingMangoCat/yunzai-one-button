@@ -70,9 +70,52 @@ ensure_termux_mirror() {
     if grep -q "mirrors.tuna.tsinghua.edu.cn\|mirrors.bfsu.edu.cn\|mirrors.ustc.edu.cn" "$src"; then
         return 0
     fi
-    log "Termux 主源为官方 CDN, 切换为清华镜像加速（原源已备份为 sources.list.bak.yzb）..."
+    log "Termux 主源为官方 CDN, 切换为实测可达的国内镜像（原源已备份为 sources.list.bak.yzb）..."
     cp "$src" "$src.bak.yzb" 2>/dev/null || true
-    echo "deb https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main stable main" > "$src"
+    local m
+    if m=$(probe_termux_mirror termux-main stable); then
+        echo "deb https://$m/termux/apt/termux-main stable main" > "$src"
+        log "主源设为: $m"
+    else
+        echo "deb https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main stable main" > "$src"
+        warn "镜像探测全部失败，回退清华源"
+    fi
+}
+
+# ---------- 探测可用的 Termux 仓库镜像 ----------
+# 依次探测镜像列表, 输出第一个 InRelease 可达(HTTP 200)的 host; 全部失败无输出
+# 顺序依据 2026-10 实测: tuna/ustc/iscas 的 x11 仓库均可达且含 chromium 包;
+# bfsu 部分网络下 403(真机实锤)放后; 官方 CDN 部分网络不可达, 仅最后兜底
+TERMUX_MIRROR_HOSTS=(mirrors.tuna.tsinghua.edu.cn mirrors.ustc.edu.cn mirror.iscas.ac.cn mirrors.bfsu.edu.cn packages-cf.termux.dev)
+# 参数: 仓库名 套件名(主源是 stable, x11 仓库套件恰好也叫 x11)
+probe_termux_mirror() {
+    local repo="$1" suite="$2" host
+    for host in "${TERMUX_MIRROR_HOSTS[@]}"; do
+        # -f: HTTP>=400(403/404/5xx) 返回非零, 200 返回 0, 按退出码判定
+        if curl -sfI --connect-timeout 8 --max-time 15 \
+            "https://$host/termux/apt/$repo/dists/$suite/InRelease" >/dev/null 2>&1; then
+            echo "$host" && return 0
+        fi
+    done
+    return 1
+}
+
+# ---------- 配置 x11 仓库源（探测可用镜像, 自愈失效源, 如 bfsu 403） ----------
+setup_x11_repo() {
+    pkg install -y x11-repo 2>&1 | tee -a "$LOG_FILE" || true
+    local x11src="$PREFIX/etc/apt/sources.list.d/x11.list"
+    local m
+    if m=$(probe_termux_mirror termux-x11 x11); then
+        if [ ! -f "$x11src" ] || ! grep -q "$m" "$x11src"; then
+            [ -f "$x11src" ] && cp "$x11src" "$x11src.bak.yzb" 2>/dev/null
+            echo "deb https://$m/termux/apt/termux-x11 x11 main" > "$x11src"
+            log "x11 源设为实测可达镜像: $m"
+        fi
+    else
+        [ -f "$x11src" ] || echo "deb https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-x11 x11 main" > "$x11src"
+        warn "x11 镜像探测全部失败，保留现有源"
+    fi
+    pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
 }
 
 # ---------- sqlite3 源码补丁（Termux/clang 21 专用） ----------
@@ -157,14 +200,7 @@ install_environment() {
             # 检测用实际二进制名 chromium-browser（Termux 的 chromium 包装的就是它），
             # 不能用 command -v chromium（匹配不上会漏装）
             if [ ! -x "$PREFIX/bin/chromium-browser" ]; then
-                pkg install -y x11-repo 2>&1 | tee -a "$LOG_FILE" || true
-                # x11 源默认指向官方 CDN，切到实测可用的 BFSU 镜像（tuna 未同步 x11）
-                local x11src="$PREFIX/etc/apt/sources.list.d/x11.list"
-                if [ -f "$x11src" ]; then
-                    cp "$x11src" "$x11src.bak.yzb" 2>/dev/null || true
-                    echo "deb https://mirrors.bfsu.edu.cn/termux/apt/termux-x11 x11 main" > "$x11src"
-                fi
-                pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
+                setup_x11_repo
                 pkg install -y chromium 2>&1 | tee -a "$LOG_FILE"
                 [ "${PIPESTATUS[0]}" -ne 0 ] && warn "Chromium 安装失败，可稍后手动执行: pkg install x11-repo && pkg update && pkg install chromium"
             fi
@@ -749,13 +785,7 @@ start_yunzai() {
         # 没有就自动补装（Termux chromium 在 x11 仓库；二进制名是 chromium-browser）
         if [ ! -x "$chromium_bin" ]; then
             log "未找到系统 chromium，自动安装（x11 仓库）..."
-            pkg install -y x11-repo 2>&1 | tee -a "$LOG_FILE" || true
-            local x11src="$PREFIX/etc/apt/sources.list.d/x11.list"
-            if [ -f "$x11src" ] && ! grep -q mirrors.bfsu.edu.cn "$x11src"; then
-                cp "$x11src" "$x11src.bak.yzb" 2>/dev/null || true
-                echo "deb https://mirrors.bfsu.edu.cn/termux/apt/termux-x11 x11 main" > "$x11src"
-            fi
-            pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
+            setup_x11_repo
             pkg install -y chromium 2>&1 | tee -a "$LOG_FILE" || true
         fi
         if [ -x "$chromium_bin" ]; then
