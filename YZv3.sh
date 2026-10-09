@@ -928,6 +928,12 @@ start_napcat_and_show_token() {
                 return 0
             fi
             # 登录会话保存在容器内，重启 NapCat 会自动快速登录，无需额外参数
+            # 无头运行依赖自检: 旧容器可能缺 xvfb/xauth（官方 2025-10 起要求 xauth，
+            # 缺它 xvfb-run 秒退），已装则跳过，幂等
+            if [ ! -x "$container_root/usr/bin/xvfb-run" ] || [ ! -x "$container_root/usr/bin/xauth" ]; then
+                log "容器内缺 xvfb/xauth，自动补装..."
+                proot-distro sh napcat -- bash -c "export DEBIAN_FRONTEND=noninteractive && apt-get update -y && apt-get install -y xvfb xauth" 2>&1 | tee -a "$LOG_FILE"
+            fi
             # 输出同时落盘到容器 /root/napcat.log，崩溃后可直接回看退出前日志
             log "后台启动 NapCat（screen 会话 napcat）..."
             screen -dmS napcat bash -c "proot-distro sh napcat -- bash -c 'xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox 2>&1 | tee /root/napcat.log'" || {
@@ -1180,7 +1186,7 @@ install_napcat() {
             log "初始化容器内 NapCat（首次较慢，请耐心等待）..."
             proot-distro sh napcat -- bash -c "export DEBIAN_FRONTEND=noninteractive && \
                 apt-get update -y && \
-                apt-get install -y sudo curl libgcrypt20 && \
+                apt-get install -y sudo curl libgcrypt20 xvfb xauth && \
                 curl -fsSL -o napcat.sh https://cdn.jsdelivr.net/gh/NapNeko/NapCat-Installer@main/script/install.sh && \
                 sudo bash napcat.sh --docker n --cli n && \
                 apt-get autoremove -y && apt-get clean && rm -rf /tmp/* /var/lib/apt/lists" 2>&1 | tee -a "$LOG_FILE"
