@@ -925,9 +925,9 @@ start_napcat_and_show_token() {
             fi
             # 先清掉 Dead 残留会话（进程崩溃后 screen 会话不死心挂着，
             # grep 到它会误判"已在运行"导致永远不重新启动）
-            screen -wipe >/dev/null 2>&1
+            "$screen_bin" -wipe >/dev/null 2>&1
             # 已有活着的 napcat 会话才跳过（(D%d?) 是 screen 对 Dead 会话的标注，须排除）
-            if screen -ls 2>/dev/null | grep -E "[0-9]+\.napcat[[:space:]]" | grep -vqE "\([Dd]ead|[Dd]etached.*[Dd]ead|\?\?\?\)"; then
+            if "$screen_bin" -ls 2>/dev/null | grep -E "[0-9]+\.napcat[[:space:]]" | grep -vqE "\([Dd]ead|[Dd]etached.*[Dd]ead|\?\?\?\)"; then
                 log "NapCat 已在后台运行（screen 会话 napcat）"
                 [ "$mode" != "auto" ] && echo -e "查看输出: ${GREEN}screen -r napcat${NC}，离开按 ${GREEN}Ctrl+A 再按 D${NC}"
                 # 一键启动联动场景也输出 token（进程已在跑，无需再等初始化）
@@ -1127,7 +1127,12 @@ install_napcat() {
             log "Termux 环境：按官方 Termux 方案安装（proot-distro debian 容器）..."
             # 以下步骤复刻官方 install.termux.sh，区别: 容器安装失败会自动重试
             # 1. 准备 proot-distro / screen（官方 CDN 慢时自动切国内镜像）
-            if ! command -v proot-distro &>/dev/null || ! command -v screen &>/dev/null; then
+            # 判断与启动侧一致: command -v 失败再探 $PREFIX/bin（部分环境误报未安装）
+            pd_missing=false
+            if ! command -v proot-distro &>/dev/null && [ ! -x "$PREFIX/bin/proot-distro" ]; then pd_missing=true; fi
+            screen_missing=false
+            if ! command -v screen &>/dev/null && [ ! -x "$PREFIX/bin/screen" ]; then screen_missing=true; fi
+            if [ "$pd_missing" = true ] || [ "$screen_missing" = true ]; then
                 ensure_termux_mirror
                 pkg update -y 2>&1 | tee -a "$LOG_FILE" || true
                 pkg install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE"
@@ -1136,8 +1141,8 @@ install_napcat() {
                     apt-get install -y proot-distro screen 2>&1 | tee -a "$LOG_FILE"
                 fi
             fi
-            command -v proot-distro &>/dev/null || error "proot-distro 安装失败，请手动执行: pkg install proot-distro screen"
-            command -v screen &>/dev/null || error "screen 安装失败，请手动执行: pkg install screen"
+            { command -v proot-distro &>/dev/null || [ -x "$PREFIX/bin/proot-distro" ]; } || error "proot-distro 安装失败，请手动执行: pkg install proot-distro screen"
+            { command -v screen &>/dev/null || [ -x "$PREFIX/bin/screen" ]; } || error "screen 安装失败，请手动执行: pkg install screen"
 
             # 2. 安装 debian 容器（镜像下载易受网络波动影响，失败自动清理重试）
             # 容器目录新版在 containers/<名>/rootfs，旧版在 installed-rootfs/<名>，两版都判
