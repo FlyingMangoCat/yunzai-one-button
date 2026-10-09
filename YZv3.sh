@@ -892,7 +892,14 @@ start_napcat_and_show_token() {
     case "$CURRENT_PLATFORM" in
         "Termux")
             # 官方 Termux 方式: proot-distro 容器 + screen 后台（与官方脚本输出一致）
-            if ! command -v proot-distro &>/dev/null || ! command -v screen &>/dev/null; then
+            # 二进制解析: command -v 在部分环境会误报未安装（实际 $PREFIX/bin 下存在，
+            # 曾致菜单 3 误判"未安装"跳过拉起），故 command -v 失败再探 $PREFIX/bin 兜底
+            local pd_bin="" screen_bin=""
+            command -v proot-distro &>/dev/null && pd_bin="proot-distro"
+            [ -z "$pd_bin" ] && [ -x "$PREFIX/bin/proot-distro" ] && pd_bin="$PREFIX/bin/proot-distro"
+            command -v screen &>/dev/null && screen_bin="screen"
+            [ -z "$screen_bin" ] && [ -x "$PREFIX/bin/screen" ] && screen_bin="$PREFIX/bin/screen"
+            if [ -z "$pd_bin" ] || [ -z "$screen_bin" ]; then
                 if [ "$mode" = "auto" ]; then
                     warn "未安装 proot-distro/screen，跳过自动拉起 NapCat（菜单 5 可安装）"
                 else
@@ -932,11 +939,13 @@ start_napcat_and_show_token() {
             # 缺它 xvfb-run 秒退），已装则跳过，幂等
             if [ ! -x "$container_root/usr/bin/xvfb-run" ] || [ ! -x "$container_root/usr/bin/xauth" ]; then
                 log "容器内缺 xvfb/xauth，自动补装..."
-                proot-distro sh napcat -- bash -c "export DEBIAN_FRONTEND=noninteractive && apt-get update -y && apt-get install -y xvfb xauth" 2>&1 | tee -a "$LOG_FILE"
+                "$pd_bin" sh napcat -- bash -c "export DEBIAN_FRONTEND=noninteractive && apt-get update -y && apt-get install -y xvfb xauth" 2>&1 | tee -a "$LOG_FILE"
             fi
             # 输出同时落盘到容器 /root/napcat.log，崩溃后可直接回看退出前日志
             log "后台启动 NapCat（screen 会话 napcat）..."
-            screen -dmS napcat bash -c "proot-distro sh napcat -- bash -c 'xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox 2>&1 | tee /root/napcat.log'" || {
+            "$screen_bin" -wipe >/dev/null 2>&1
+            # 直接执行手动验证过的启动命令（与用户手动操作完全一致，仅加日志落盘）
+            "$screen_bin" -dmS napcat bash -c "$pd_bin sh napcat -- bash -c 'xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox 2>&1 | tee /root/napcat.log'" || {
                 warn "启动失败，请手动执行:"
                 echo -e "${GREEN}screen -dmS napcat bash -c 'proot-distro sh napcat -- bash -c \"xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox\"'${NC}"
                 return 1
@@ -945,10 +954,10 @@ start_napcat_and_show_token() {
             echo -e "查看启动输出: ${GREEN}screen -r napcat${NC}，离开按 ${GREEN}Ctrl+A 再按 D${NC}"
             # 启动后确认进程真的活着（screen 创建成功不代表容器内 QQ 没崩）
             sleep 5
-            if ! screen -ls 2>/dev/null | grep -E "[0-9]+\.napcat[[:space:]]" | grep -vqE "\([Dd]ead|\?\?\?\)"; then
+            if ! "$screen_bin" -ls 2>/dev/null | grep -E "[0-9]+\.napcat[[:space:]]" | grep -vqE "\([Dd]ead|\?\?\?\)"; then
                 warn "NapCat 启动后随即退出（screen 会话已死），退出前日志如下："
                 local crash_log
-                crash_log=$(proot-distro sh napcat -- tail -n 30 /root/napcat.log 2>/dev/null)
+                crash_log=$("$pd_bin" sh napcat -- tail -n 30 /root/napcat.log 2>/dev/null)
                 if [ -n "$crash_log" ]; then
                     echo -e "${YELLOW}---------- NapCat 退出前日志（最后 30 行） ----------${NC}"
                     echo "$crash_log"
