@@ -535,9 +535,11 @@ install_yunzai() {
     fi
     # node-addon-api 4.x 的 napi.h 有 clang 21 不接受的类内静态初始化
     # (unknown_array_type = static_cast<napi_typedarray_type>(-1), 枚举值越界),
-    # 上游 8.x 已移除该写法; Node-API ABI 稳定, 头文件可安全升级。
-    # sqlite3 本体则直接用打补丁的重打包版 @flyingmangocat/sqlite3-termux
-    # (statement.cc 两处 SQLITE_TRANSIENT 已显式强转, 免去装后补丁+重编译),
+    # 该写法上游从 5.0.0 起已删除。sqlite3 官方 5.1.7 配套依赖即为 ^7.0.0,
+    # 7.x 是唯一有官方实测背书的非 4.x 版本(已逐符号核对 5.1.6 用到的
+    # 全部 Napi:: API 在 7.1.1 中存在)。sqlite3 本体则直接用打补丁的
+    # 重打包版 @flyingmangocat/sqlite3-termux(statement.cc 两处
+    # SQLITE_TRANSIENT 已显式强转, 免去装后补丁+重编译)。
     # 两者都经 pnpm overrides 全树强制(仅 Termux 注入, 其他平台保持原版)
     if [ "$IS_TERMUX" = true ] && command -v node &>/dev/null; then
         node -e "
@@ -545,30 +547,42 @@ const fs = require('fs');
 const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 p.pnpm = p.pnpm || {};
 p.pnpm.overrides = Object.assign({}, p.pnpm.overrides, {
-  'node-addon-api': '^8.9.2',
+  'node-addon-api': '^7.1.1',
   'sqlite3': 'npm:@flyingmangocat/sqlite3-termux@5.1.6-termux.1'
 });
 fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
-console.log('已注入 pnpm.overrides: node-addon-api ^8.9.2 + sqlite3 -> @flyingmangocat/sqlite3-termux');
+console.log('已注入 pnpm.overrides: node-addon-api ^7.1.1 + sqlite3 -> @flyingmangocat/sqlite3-termux');
 " 2>&1 | tee -a "$LOG_FILE"
     fi
     local ok=false
     for i in 1 2 3; do
-        env "${sqlite_env[@]}" pnpm install 2>&1 || env "${sqlite_env[@]}" pnpm install --ignore-scripts 2>&1 || true
-        if [ -d "node_modules" ]; then
+        if env "${sqlite_env[@]}" pnpm install 2>&1; then
             ok=true && break
         fi
+        # install 失败: 先重试原方式, 3 轮都不行才降级 ignore-scripts 并如实告警
         log "依赖安装失败，重试 ($i/3)..."
         sleep 3
     done
+    if [ "$ok" != true ]; then
+        warn "编译安装 3 轮均失败，降级为 --ignore-scripts 安装（跳过编译，sqlite3 等原生模块将不可用）"
+        env "${sqlite_env[@]}" pnpm install --ignore-scripts 2>&1 | tail -5 || true
+        [ -d "node_modules" ] && ok=true
+    fi
     $ok || error "依赖安装失败，请检查网络连接"
-    # Termux 兜底: 若 overrides 方式编译仍失败, 回退到旧路——对树中 sqlite3
-    # 源码打补丁后重编译（patch_sqlite_sources 幂等）
+    # 编译产物实测: node_modules 存在不代表编译成功, require 实测才算数;
+    # 失败则回退源码补丁路径并按真实包名 rebuild(别名包名 rebuild sqlite3 匹配不到)
     if [ "$IS_TERMUX" = true ]; then
         if ! node -e "require('sqlite3')" >/dev/null 2>&1; then
             log "npm 包方式编译未通过，回退源码补丁方案..."
             patch_sqlite_sources "$YUNZAI_DIR"
-            env "${sqlite_env[@]}" pnpm rebuild sqlite3 2>&1 | tee -a "$LOG_FILE" || true
+            env "${sqlite_env[@]}" pnpm rebuild @flyingmangocat/sqlite3-termux 2>&1 | tee -a "$LOG_FILE" || true
+            if ! node -e "require('sqlite3')" >/dev/null 2>&1; then
+                warn "sqlite3 编译仍未通过，云崽数据库功能不可用；请把上方编译报错完整反馈"
+            else
+                success "sqlite3 编译验证通过"
+            fi
+        else
+            success "sqlite3 编译验证通过"
         fi
     fi
     success "依赖安装完成"
@@ -702,7 +716,8 @@ start_yunzai() {
             # 先补丁源码再编译（clang 21 下 SQLITE_TRANSIENT 报类型转换错误）
             patch_sqlite_sources "$target"
             # 第一级: 常规 rebuild（NDK 路径已由 ~/.gyp/include.gypi 兜底）
-            (cd "$target" && pnpm rebuild sqlite3) 2>&1 | tee -a "$LOG_FILE"
+            # 注意按真实包名 rebuild——overrides 换成别名包后 rebuild sqlite3 匹配不到
+            (cd "$target" && pnpm rebuild @flyingmangocat/sqlite3-termux sqlite3) 2>&1 | tee -a "$LOG_FILE"
             # 第二级: 若仍失败（报 invalid conversion 'int' to 'sqlite3_destructor_type'
             # 等 C++ 编译错误），改链 Termux 系统级 libsqlite 编译，完全绕开
             # 自带 sqlite3.c 源码（termux-packages#20678 官方确认方案）
@@ -713,7 +728,7 @@ start_yunzai() {
                     SQLITE3_INCLUDE_DIR="$PREFIX/include" \
                     SQLITE3_LIB_DIR="$PREFIX/lib" \
                     npm_config_build_from_source=true \
-                    pnpm rebuild sqlite3) 2>&1 | tee -a "$LOG_FILE"
+                    pnpm rebuild @flyingmangocat/sqlite3-termux sqlite3) 2>&1 | tee -a "$LOG_FILE"
             fi
             if (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1); then
                 success "sqlite3 重编译成功"
