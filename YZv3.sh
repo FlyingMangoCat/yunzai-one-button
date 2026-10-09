@@ -575,14 +575,16 @@ console.log('已注入 pnpm.overrides: node-addon-api ^8.9.2 + sqlite3 -> @flyin
 
     # 4.8 安装插件
     log "安装插件..."
-    install_plugin "miao-plugin" "https://github.com/yoimiya-kokomi/miao-plugin.git" \
+    install_plugin "miao-plugin" "支持查询游戏内角色面板" "https://github.com/yoimiya-kokomi/miao-plugin.git" \
         "https://gitcode.com/huifeidemangguomao/miao-plugin.git" \
         "https://gitee.com/huifeidemangguomao/miao-plugin.git"
-    install_plugin "xiaoyao-cvs-plugin" "https://github.com/Ctrlcvs/xiaoyao-cvs-plugin.git" \
+    install_plugin "xiaoyao-cvs-plugin" "提供原魔、食物、武器、角色等图鉴帮助" "https://github.com/Ctrlcvs/xiaoyao-cvs-plugin.git" \
         "https://gitcode.com/TimeRainStarSky/xiaoyao-cvs-plugin.git"
-    install_plugin "liulian-plugin" "https://gitee.com/huifeidemangguomao/liulian-plugin.git" \
+    install_plugin "liulian-plugin" "提供原神地下地图、插件管理、以及部分群聊功能" "https://gitee.com/huifeidemangguomao/liulian-plugin.git" \
         "https://gitcode.com/huifeidemangguomao/liulian-plugin.git" \
         "https://github.com/FlyingMangoCat/liulian-plugin.git"
+    echo -e "${YELLOW}如果想删除插件，请进入 $YUNZAI_DIR/plugins 后执行 rm -rf 插件名称${NC}"
+    echo -e "${YELLOW}（示例: rm -rf miao-plugin）${NC}"
 
     # 4.9 安装插件依赖
     log "安装插件依赖..."
@@ -602,13 +604,16 @@ console.log('已注入 pnpm.overrides: node-addon-api ^8.9.2 + sqlite3 -> @flyin
 }
 
 # ---------- 插件安装函数 ----------
+# 参数: 名称 用途描述 克隆源1 [克隆源2] ...
 install_plugin() {
     local name="$1"; shift
+    local desc="$1"; shift
     local urls=("$@")
     if [ -d "$YUNZAI_DIR/plugins/$name" ]; then
         log "  - $name 已存在，跳过"
         return
     fi
+    log "  - 正在安装 $name（$desc）..."
     for url in "${urls[@]}"; do
         for i in 1 2 3; do
             git clone --depth=1 "$url" "$YUNZAI_DIR/plugins/$name" 2>/dev/null && \
