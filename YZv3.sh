@@ -869,18 +869,24 @@ show_napcat_token() {
 
     # 优先从运行日志抓权威登录链接（token 可能随扫码刷新, 日志里的
     # WebUi Local Panel Url 是当前实例唯一权威的地址+密钥, 整条粘进浏览器即可）
+    # 日志多源: 脚本启动落盘的 /root/napcat.log 未必存在（用户手动启动过就没有）,
+    # 依次再试 NapCat 自身 logs 目录, 都没有才回退 webui.json
     local panel_url=""
     local pd_read="proot-distro"
     # 与启动侧同款兜底: command -v 在部分环境误报, $PREFIX/bin 实际存在
     command -v proot-distro &>/dev/null || [ -x "$PREFIX/bin/proot-distro" ] && pd_read="$PREFIX/bin/proot-distro"
-    case "$CURRENT_PLATFORM" in
-        "Termux")
-            panel_url=$("$pd_read" sh napcat -- grep -ihE "Panel Url" /root/napcat.log 2>/dev/null | tail -n 1 | grep -oE "https?://[^[:space:]]+" | tr -d '\r')
-            ;;
-        "Linux")
-            panel_url=$(grep -ihE "Panel Url" /root/napcat.log 2>/dev/null | tail -n 1 | grep -oE "https?://[^[:space:]]+")
-            ;;
-    esac
+    if [ "$CURRENT_PLATFORM" = "Termux" ]; then
+        panel_url=$("$pd_read" sh napcat -- bash -c "
+            grep -ihE 'Panel Url' /root/napcat.log 2>/dev/null;
+            cat /root/Napcat/opt/QQ/resources/app/app_launcher/napcat/logs/*.log 2>/dev/null;
+            find /root/Napcat -name '*.log' -exec grep -ihE 'Panel Url' {} + 2>/dev/null
+        " 2>/dev/null | grep -ihE "Panel Url" | tail -n 1 | grep -oE "https?://[^[:space:]]+" | tr -d '\r')
+    elif [ "$CURRENT_PLATFORM" = "Linux" ]; then
+        panel_url=$( { grep -ihE "Panel Url" /root/napcat.log 2>/dev/null;
+                       cat /opt/QQ/resources/app/app_launcher/napcat/logs/*.log 2>/dev/null;
+                       find /opt/QQ/resources/app/app_launcher/napcat -name '*.log' -exec grep -ihE 'Panel Url' {} + 2>/dev/null; } \
+                     | tail -n 1 | grep -oE "https?://[^[:space:]]+" | tr -d '\r')
+    fi
     if [ -n "$panel_url" ]; then
         success "NapCat WebUI 登录链接（整条复制到浏览器打开，无需手输 token）:"
         echo -e "${GREEN}$panel_url${NC}"
