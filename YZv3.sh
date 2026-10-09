@@ -456,12 +456,11 @@ install_yunzai() {
         if echo "$repo_url" | grep -q "gitee.com"; then
             local rp=$(echo "$repo_url" | sed 's|https://gitee.com/||' | sed 's|\.git$||')
             if echo "$rp" | grep -q "huifeidemangguomao/MangoCat-Yunzai"; then
-                clone_urls+=("https://github.com/FlyingMangoCat/MangoCat-Yunzai.git" "https://gh-proxy.com/https://github.com/FlyingMangoCat/MangoCat-Yunzai.git")
+                clone_urls+=("https://github.com/FlyingMangoCat/MangoCat-Yunzai.git" "https://gh-proxy.com/https://github.com/FlyingMangoCat/MangoCat-Yunzai.git" "https://gitcode.com/huifeidemangguomao/MangoCat-Yunzai.git")
             fi
             if echo "$rp" | grep -q "yoimiya-kokomi/Miao-Yunzai"; then
-                clone_urls+=("https://github.com/yoimiya-kokomi/Miao-Yunzai.git" "https://gh-proxy.com/https://github.com/yoimiya-kokomi/Miao-Yunzai.git")
+                clone_urls+=("https://github.com/yoimiya-kokomi/Miao-Yunzai.git" "https://gh-proxy.com/https://github.com/yoimiya-kokomi/Miao-Yunzai.git" "https://gitcode.com/huifeidemangguomao/Miao-Yunzai.git")
             fi
-            clone_urls+=("https://gitee.com/$rp.git")
         fi
         if echo "$repo_url" | grep -q "github.com"; then
             local rp=$(echo "$repo_url" | sed 's|https://github.com/||')
@@ -577,12 +576,13 @@ console.log('已注入 pnpm.overrides: node-addon-api ^8.9.2 + sqlite3 -> @flyin
     # 4.8 安装插件
     log "安装插件..."
     install_plugin "miao-plugin" "https://github.com/yoimiya-kokomi/miao-plugin.git" \
-        "https://gitcode.com/TimeRainStarSky/miao-plugin.git" \
+        "https://gitcode.com/huifeidemangguomao/miao-plugin.git" \
         "https://gitee.com/huifeidemangguomao/miao-plugin.git"
     install_plugin "xiaoyao-cvs-plugin" "https://github.com/Ctrlcvs/xiaoyao-cvs-plugin.git" \
         "https://gitcode.com/TimeRainStarSky/xiaoyao-cvs-plugin.git"
-    install_plugin "liulian-plugin" "https://github.com/FlyingMangoCat/liulian-plugin.git" \
-        "https://gitee.com/huifeidemangguomao/liulian-plugin.git"
+    install_plugin "liulian-plugin" "https://gitee.com/huifeidemangguomao/liulian-plugin.git" \
+        "https://gitcode.com/huifeidemangguomao/liulian-plugin.git" \
+        "https://github.com/FlyingMangoCat/liulian-plugin.git"
 
     # 4.9 安装插件依赖
     log "安装插件依赖..."
