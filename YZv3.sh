@@ -952,10 +952,23 @@ start_napcat_and_show_token() {
             "$screen_bin" -wipe >/dev/null 2>&1
             # 已有活着的 napcat 会话才跳过（(D%d?) 是 screen 对 Dead 会话的标注，须排除）
             if "$screen_bin" -ls 2>/dev/null | grep -E "[0-9]+\.napcat[[:space:]]" | grep -vqE "\([Dd]ead|[Dd]etached.*[Dd]ead|\?\?\?\)"; then
-                log "NapCat 已在后台运行（screen 会话 napcat）"
+                # 非托管实例(手动启动, 无落盘日志)转为托管模式重启:
+                # 不重启则永远没有运行日志, 登录链接无从读取; 登录态在容器内, 重启自动快登
+                if ! "$pd_bin" sh napcat -- test -s /root/napcat.log 2>/dev/null; then
+                    log "当前实例非脚本托管（无运行日志），转为托管模式重启..."
+                    "$screen_bin" -S napcat -X quit 2>/dev/null
+                    "$screen_bin" -wipe >/dev/null 2>&1
+                    "$screen_bin" -dmS napcat bash -c "$pd_bin sh napcat -- bash -c 'xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox 2>&1 | tee /root/napcat.log'" || {
+                        warn "托管模式重启失败，请手动执行:"
+                        echo -e "${GREEN}screen -dmS napcat bash -c 'proot-distro sh napcat -- bash -c \"xvfb-run -a /root/Napcat/opt/QQ/qq --no-sandbox\"'${NC}"
+                        return 1
+                    }
+                    sleep 10
+                else
+                    log "NapCat 已在后台运行（screen 会话 napcat）"
+                fi
                 [ "$mode" != "auto" ] && echo -e "查看输出: ${GREEN}screen -r napcat${NC}，离开按 ${GREEN}Ctrl+A 再按 D${NC}"
-                # 一键启动联动场景也输出 token（进程已在跑，无需再等初始化）
-                [ "$mode" = "auto" ] && show_napcat_token
+                show_napcat_token
                 return 0
             fi
             # 登录会话保存在容器内，重启 NapCat 会自动快速登录，无需额外参数
