@@ -135,6 +135,20 @@ patch_sqlite_sources() {
     [ $patched -gt 0 ] && success "sqlite3 源码补丁完成（$patched 处）" || log "sqlite3 源码无需补丁"
 }
 
+# 进包目录执行 rebuild（真编译，实测约 1m30s）
+# pnpm 8 下 `pnpm rebuild <包名选择器>` 匹配不到 overrides 注入的别名包，
+# 会静默空跑返回 0（无任何输出、2~3 秒退出），必须进包目录跑
+rebuild_sqlite_in_dir() {
+    local target="$1" && shift
+    local pkg_dir
+    pkg_dir=$(find "$target/node_modules/.pnpm" -maxdepth 1 -type d -name '*sqlite3-termux*' 2>/dev/null | head -1)
+    if [ -z "$pkg_dir" ]; then
+        warn "未找到 sqlite3-termux 包目录，无法重编译"
+        return 1
+    fi
+    (cd "$pkg_dir/node_modules/sqlite3" && "$@") 2>&1
+}
+
 # ---------- 1. 获取权限 ----------
 get_permissions() {
     log "获取系统权限..."
@@ -611,7 +625,7 @@ console.log('已注入 pnpm.overrides: node-addon-api ^7.1.1 + sqlite3 -> @flyin
         if ! node -e "require('sqlite3')" >/dev/null 2>&1; then
             log "npm 包方式编译未通过，回退源码补丁方案..."
             patch_sqlite_sources "$YUNZAI_DIR"
-            env "${sqlite_env[@]}" pnpm rebuild @flyingmangocat/sqlite3-termux 2>&1 | tee -a "$LOG_FILE" || true
+            env "${sqlite_env[@]}" rebuild_sqlite_in_dir "$YUNZAI_DIR" pnpm rebuild 2>&1 | tee -a "$LOG_FILE" || true
             if ! node -e "require('sqlite3')" >/dev/null 2>&1; then
                 warn "sqlite3 编译仍未通过，云崽数据库功能不可用；请把上方编译报错完整反馈"
             else
@@ -752,19 +766,18 @@ start_yunzai() {
             # 先补丁源码再编译（clang 21 下 SQLITE_TRANSIENT 报类型转换错误）
             patch_sqlite_sources "$target"
             # 第一级: 常规 rebuild（NDK 路径已由 ~/.gyp/include.gypi 兜底）
-            # 注意按真实包名 rebuild——overrides 换成别名包后 rebuild sqlite3 匹配不到
-            (cd "$target" && pnpm rebuild @flyingmangocat/sqlite3-termux sqlite3) 2>&1 | tee -a "$LOG_FILE"
+            rebuild_sqlite_in_dir "$target" pnpm rebuild 2>&1 | tee -a "$LOG_FILE"
             # 第二级: 若仍失败（报 invalid conversion 'int' to 'sqlite3_destructor_type'
             # 等 C++ 编译错误），改链 Termux 系统级 libsqlite 编译，完全绕开
             # 自带 sqlite3.c 源码（termux-packages#20678 官方确认方案）
             if ! (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1) && [ "$IS_TERMUX" = true ]; then
                 log "常规编译失败，改用系统级 SQLite 库编译..."
                 pkg install -y libsqlite 2>&1 | tee -a "$LOG_FILE" || true
-                (cd "$target" && \
-                    SQLITE3_INCLUDE_DIR="$PREFIX/include" \
+                rebuild_sqlite_in_dir "$target" \
+                    env SQLITE3_INCLUDE_DIR="$PREFIX/include" \
                     SQLITE3_LIB_DIR="$PREFIX/lib" \
                     npm_config_build_from_source=true \
-                    pnpm rebuild @flyingmangocat/sqlite3-termux sqlite3) 2>&1 | tee -a "$LOG_FILE"
+                    pnpm rebuild 2>&1 | tee -a "$LOG_FILE"
             fi
             if (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1); then
                 success "sqlite3 重编译成功"
