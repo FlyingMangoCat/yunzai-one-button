@@ -916,8 +916,11 @@ start_napcat_and_show_token() {
                 fi
                 return 1
             fi
-            # 已有同名后台会话则不再重复启动
-            if screen -ls 2>/dev/null | grep -q "\.napcat"; then
+            # 先清掉 Dead 残留会话（进程崩溃后 screen 会话不死心挂着，
+            # grep 到它会误判"已在运行"导致永远不重新启动）
+            screen -wipe >/dev/null 2>&1
+            # 已有活着的 napcat 会话才跳过（(D%d?) 是 screen 对 Dead 会话的标注，须排除）
+            if screen -ls 2>/dev/null | grep -E "[0-9]+\.napcat[[:space:]]" | grep -vqE "\([Dd]ead|[Dd]etached.*[Dd]ead|\?\?\?\)"; then
                 log "NapCat 已在后台运行（screen 会话 napcat）"
                 [ "$mode" != "auto" ] && echo -e "查看输出: ${GREEN}screen -r napcat${NC}，离开按 ${GREEN}Ctrl+A 再按 D${NC}"
                 return 0
@@ -931,6 +934,12 @@ start_napcat_and_show_token() {
             }
             echo -e "${GREEN}已在 screen 后台会话 napcat 中启动${NC}"
             echo -e "查看启动输出: ${GREEN}screen -r napcat${NC}，离开按 ${GREEN}Ctrl+A 再按 D${NC}"
+            # 启动后确认进程真的活着（screen 创建成功不代表容器内 QQ 没崩）
+            sleep 5
+            if ! screen -ls 2>/dev/null | grep -E "[0-9]+\.napcat[[:space:]]" | grep -vqE "\([Dd]ead|\?\?\?\)"; then
+                warn "NapCat 启动后随即退出（screen 会话已死），请执行 screen -r napcat 查看崩溃日志"
+                return 1
+            fi
             ;;
         "Linux")
             if ! command -v napcat &>/dev/null && ! command -v qq &>/dev/null; then
