@@ -870,9 +870,12 @@ show_napcat_token() {
     # 优先从运行日志抓权威登录链接（token 可能随扫码刷新, 日志里的
     # WebUi Local Panel Url 是当前实例唯一权威的地址+密钥, 整条粘进浏览器即可）
     local panel_url=""
+    local pd_read="proot-distro"
+    # 与启动侧同款兜底: command -v 在部分环境误报, $PREFIX/bin 实际存在
+    command -v proot-distro &>/dev/null || [ -x "$PREFIX/bin/proot-distro" ] && pd_read="$PREFIX/bin/proot-distro"
     case "$CURRENT_PLATFORM" in
         "Termux")
-            panel_url=$(proot-distro sh napcat -- grep -ihE "Panel Url" /root/napcat.log 2>/dev/null | tail -n 1 | grep -oE "https?://[^[:space:]]+")
+            panel_url=$("$pd_read" sh napcat -- grep -ihE "Panel Url" /root/napcat.log 2>/dev/null | tail -n 1 | grep -oE "https?://[^[:space:]]+" | tr -d '\r')
             ;;
         "Linux")
             panel_url=$(grep -ihE "Panel Url" /root/napcat.log 2>/dev/null | tail -n 1 | grep -oE "https?://[^[:space:]]+")
