@@ -146,7 +146,43 @@ rebuild_sqlite_in_dir() {
         warn "未找到 sqlite3-termux 包目录，无法重编译"
         return 1
     fi
+    if [ ! -d "$pkg_dir/node_modules/sqlite3" ]; then
+        warn "包目录不完整（缺少 node_modules/sqlite3），无法重编译"
+        return 1
+    fi
     (cd "$pkg_dir/node_modules/sqlite3" && "$@") 2>&1
+}
+
+# ---------- 依赖完整性与重装 ----------
+# node_modules 目录存在不代表拉全了: install 中断/降级后可能残缺,
+# 校验实测 require('sqlite3') + 关键包目录非空, 全过才算"拉全了"
+verify_deps_integrity() {
+    local target="$1"
+    [ -d "$target/node_modules" ] || return 1
+    # 关键包目录非空（install 中断时常出现空壳目录）
+    local pkg
+    for pkg in "$target"/node_modules/.pnpm/*/node_modules/sqlite3; do
+        [ -d "$pkg" ] || continue
+        [ -n "$(ls -A "$pkg" 2>/dev/null)" ] || return 1
+    done
+    (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1)
+}
+
+# 更彻底的修复手段: 残缺产物不可信, 清掉整体重装（含编译），3 轮重试
+reinstall_deps_clean() {
+    local target="$1" && shift
+    log "依赖不完整，清理后整体重装..."
+    rm -rf "$target/node_modules"
+    local i
+    for i in 1 2 3; do
+        # 注意: 不能用 `pnpm install | tee` 判断成败——管道取 tee 的退出码会吞掉 install 的失败
+        if (cd "$target" && env "$@" pnpm install) >>"$LOG_FILE" 2>&1; then
+            return 0
+        fi
+        log "重装失败，重试 ($i/3)...（详见 $LOG_FILE）"
+        sleep 3
+    done
+    return 1
 }
 
 # ---------- 1. 获取权限 ----------
@@ -614,9 +650,20 @@ console.log('已注入 pnpm.overrides: node-addon-api ^7.1.1 + sqlite3 -> @flyin
         sleep 3
     done
     if [ "$ok" != true ]; then
-        warn "编译安装 3 轮均失败，降级为 --ignore-scripts 安装（跳过编译，sqlite3 等原生模块将不可用）"
-        env "${sqlite_env[@]}" pnpm install --ignore-scripts 2>&1 | tail -5 || true
-        [ -d "node_modules" ] && ok=true
+        # 失败不代表一定残缺: 先校验拉下来的东西全不全，全就不降级
+        if verify_deps_integrity "$YUNZAI_DIR"; then
+            ok=true
+            success "依赖虽报错但完整性校验通过，继续"
+        else
+            # 残缺产物不可信，不急着降级: 先整体重装（更彻底的修复手段）
+            if reinstall_deps_clean "$YUNZAI_DIR" "${sqlite_env[@]}"; then
+                ok=true
+            else
+                warn "整体重装 3 轮均失败，降级为 --ignore-scripts 安装（跳过编译，sqlite3 等原生模块将不可用）"
+                (cd "$YUNZAI_DIR" && env "${sqlite_env[@]}" pnpm install --ignore-scripts 2>&1 | tail -5) || true
+                [ -d "$YUNZAI_DIR/node_modules" ] && ok=true
+            fi
+        fi
     fi
     $ok || error "依赖安装失败，请检查网络连接"
     # 编译产物实测: node_modules 存在不代表编译成功, require 实测才算数;
@@ -627,7 +674,7 @@ console.log('已注入 pnpm.overrides: node-addon-api ^7.1.1 + sqlite3 -> @flyin
             patch_sqlite_sources "$YUNZAI_DIR"
             env "${sqlite_env[@]}" rebuild_sqlite_in_dir "$YUNZAI_DIR" pnpm rebuild 2>&1 | tee -a "$LOG_FILE" || true
             if ! node -e "require('sqlite3')" >/dev/null 2>&1; then
-                warn "sqlite3 编译仍未通过，云崽数据库功能不可用；请把上方编译报错完整反馈"
+                error "sqlite3 编译仍未通过，云崽数据库功能不可用；请把上方编译报错完整反馈"
             else
                 success "sqlite3 编译验证通过"
             fi
@@ -652,12 +699,17 @@ console.log('已注入 pnpm.overrides: node-addon-api ^7.1.1 + sqlite3 -> @flyin
 
     # 4.9 安装插件依赖
     log "安装插件依赖..."
-    env "${sqlite_env[@]}" pnpm install 2>/dev/null || env "${sqlite_env[@]}" pnpm install --ignore-scripts 2>/dev/null || true
-    if [ -d "node_modules" ]; then
-        success "插件依赖安装完成"
-    else
-        error "插件依赖安装失败"
+    # 失败不直接降级: 先校验完整性，残缺则整体重装，全失败才降级并阻断
+    if ! env "${sqlite_env[@]}" pnpm install 2>/dev/null; then
+        if ! verify_deps_integrity "$YUNZAI_DIR"; then
+            if ! reinstall_deps_clean "$YUNZAI_DIR" "${sqlite_env[@]}"; then
+                warn "插件依赖重装仍失败，降级为 --ignore-scripts（跳过编译）"
+                (cd "$YUNZAI_DIR" && env "${sqlite_env[@]}" pnpm install --ignore-scripts 2>/dev/null) || true
+            fi
+        fi
     fi
+    verify_deps_integrity "$YUNZAI_DIR" || error "插件依赖安装失败，请检查网络连接"
+    success "插件依赖安装完成"
 
     cd ..
 
@@ -761,13 +813,22 @@ start_yunzai() {
     # sqlite3 自检: 编译产物缺失/失效时自动重编译（此前 Termux 缺编译工具链导致编译失败，
     # 或 Node 升级后 ABI 变化使旧产物失效，运行期才报 Please install sqlite3 package manually）
     if [ -d "$target/node_modules" ] && ! (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1); then
-        log "检测到 sqlite3 模块不可用，自动重编译..."
-        if command -v pnpm &>/dev/null; then
-            # 先补丁源码再编译（clang 21 下 SQLITE_TRANSIENT 报类型转换错误）
+        log "检测到 sqlite3 模块不可用，自动修复..."
+        # 第一级: 先校验依赖完整性，残缺（install 中断/降级遗留）则整体重装而非只重编译
+        if ! verify_deps_integrity "$target"; then
+            if command -v pnpm &>/dev/null; then
+                reinstall_deps_clean "$target" || warn "整体重装失败，转重编译兜底..."
+            else
+                warn "未检测到 pnpm，无法重装依赖"
+            fi
+        fi
+        # 第二级: 补丁源码再编译（clang 21 下 SQLITE_TRANSIENT 报类型转换错误）
+        if ! (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1) && command -v pnpm &>/dev/null; then
+            log "重编译 sqlite3..."
             patch_sqlite_sources "$target"
-            # 第一级: 常规 rebuild（NDK 路径已由 ~/.gyp/include.gypi 兜底）
+            # 常规 rebuild（NDK 路径已由 ~/.gyp/include.gypi 兜底）
             rebuild_sqlite_in_dir "$target" pnpm rebuild 2>&1 | tee -a "$LOG_FILE"
-            # 第二级: 若仍失败（报 invalid conversion 'int' to 'sqlite3_destructor_type'
+            # 第三级: 若仍失败（报 invalid conversion 'int' to 'sqlite3_destructor_type'
             # 等 C++ 编译错误），改链 Termux 系统级 libsqlite 编译，完全绕开
             # 自带 sqlite3.c 源码（termux-packages#20678 官方确认方案）
             if ! (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1) && [ "$IS_TERMUX" = true ]; then
@@ -779,13 +840,13 @@ start_yunzai() {
                     npm_config_build_from_source=true \
                     pnpm rebuild 2>&1 | tee -a "$LOG_FILE"
             fi
-            if (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1); then
-                success "sqlite3 重编译成功"
-            else
-                warn "sqlite3 仍不可用，请把上方 gyp/编译报错完整反馈给脚本维护者"
-            fi
+        fi
+        # 修不好就阻断启动: 明知道数据库不可用还放行，node app 只会在 sequelize
+        # 加载 sqlite dialect 时直接崩溃，报错更晚更难排查
+        if (cd "$target" && node -e "require('sqlite3')" >/dev/null 2>&1); then
+            success "sqlite3 修复成功"
         else
-            warn "未检测到 pnpm，无法自动重编译 sqlite3，请先通过菜单 1/2 安装依赖"
+            error "sqlite3 修复失败，云崽启动必然崩溃；请把上方编译/安装报错完整反馈给脚本维护者"
         fi
     fi
     # 联动拉起 NapCat（未安装/未配置仅提示，不阻断云崽启动）
