@@ -4,9 +4,9 @@
 >
 > 等级说明：
 >   
-> 🟢 官方 —— 本团队维护的仓库，免审
+> 🟢 官方 —— 本团队维护的仓库
 >   
-> 🟡 已收录 —— 人工审查通过，每月抽查、每年全面复查
+> 🟡 已收录 —— 社区中人工审查通过，每月抽查、每年全面复查
 >
 > 安装/更新只信任"版本哈希"列记录的 commit，超出该范围的更新需重新确认。
 >   
@@ -15,9 +15,9 @@
 
 | 等级     | 插件                                                                                                                                                                                                                        | 作者                                                                                     | 类型   | 简介                                                                                                                                                             | 下载地址                                                                                                                                                                                                                                                                                                                     | 检查日期           | 版本哈希    |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- | ------- |
-| 🟢 官方  | [榴莲插件 (liulian-plugin)](https://gitee.com/huifeidemangguomao/liulian-plugin)                                                                                                                                              | [@会飞的芒果猫](https://gitee.com/huifeidemangguomao) [@萧枘](https://gitee.com/xiaoxiaorurui) | 官方   | 原神地下地图、B站推送、插件管理及原神/星铁猜角色、娶群友、随机表情、星座运势、话痨统计、天气、多群广播等群聊功能                                                                                                      | [Gitee](https://gitee.com/huifeidemangguomao/liulian-plugin)（主）→[GitCode](https://gitcode.com/huifeidemangguomao/liulian-plugin)→[GitHub](https://github.com/FlyingMangoCat/liulian-plugin)                                                                                                                              | 免审             | —       |
-| 🟢 官方 | [老板魔改修仙 (personal-cultivation-version)](https://gitee.com/mango-cats-upload-assistant/personal-cultivation-version) | [@白日梦工厂](https://gitee.com/mango-cats-upload-assistant) | 官方 | Yunzai-Bot V3「修仙模拟器」独立维护分支 | [Gitee](https://gitee.com/mango-cats-upload-assistant/personal-cultivation-version) | 免审 | — |
-| 🟢 官方  | [MangoCat-Yunzai（本体框架）](https://gitee.com/huifeidemangguomao/MangoCat-Yunzai)                                                                                                                                             | [@会飞的芒果猫](https://gitee.com/huifeidemangguomao)                                        | 官方   | Yunzai-Bot V3 机器人框架本体（lib/ 核心 + 团队维护插件 liulian-plugin 等）                                                                                                       | [Gitee](https://gitee.com/huifeidemangguomao/MangoCat-Yunzai)                                                                                                                                                                                                                                                            | 免审             | 011fdb7 |
+| 🟢 官方  | [榴莲插件 (liulian-plugin)](https://gitee.com/huifeidemangguomao/liulian-plugin)                                                                                                                                              | [@会飞的芒果猫](https://gitee.com/huifeidemangguomao) [@萧枘](https://gitee.com/xiaoxiaorurui) | 官方   | 原神地下地图、B站推送、插件管理及原神/星铁猜角色、娶群友、随机表情、星座运势、话痨统计、天气、多群广播等群聊功能                                                                                                      | [Gitee](https://gitee.com/huifeidemangguomao/liulian-plugin)（主）→[GitCode](https://gitcode.com/huifeidemangguomao/liulian-plugin)→[GitHub](https://github.com/FlyingMangoCat/liulian-plugin)                                                                                                                              | 2026-10-26 | 81653be |
+| 🟢 官方 | [老板魔改修仙 (personal-cultivation-version)](https://gitee.com/mango-cats-upload-assistant/personal-cultivation-version) | [@白日梦工厂](https://gitee.com/mango-cats-upload-assistant) | 官方 | Yunzai-Bot V3「修仙模拟器」独立维护分支 | [Gitee](https://gitee.com/mango-cats-upload-assistant/personal-cultivation-version) | 2026-10-26 | bdfebd7 |
+| 🟢 官方  | [MangoCat-Yunzai（本体框架）](https://gitee.com/huifeidemangguomao/MangoCat-Yunzai)                                                                                                                                             | [@会飞的芒果猫](https://gitee.com/huifeidemangguomao)                                        | 官方   | Yunzai-Bot V3 机器人框架本体（lib/ 核心 + 团队维护插件 liulian-plugin 等）                                                                                                       | [Gitee](https://gitee.com/huifeidemangguomao/MangoCat-Yunzai)                                                                                                                                                                                                                                                            | 2026-10-26 | 011fdb7 |
 | 🟡 已收录 | [喵喵插件 (miao-plugin)](https://github.com/yoimiya-kokomi/miao-plugin)                                                                                                                                                       | [@喵喵](https://gitee.com/yoimiya-kokomi)                                                | 功能插件 | Yunzai-Bot 升级插件，提供角色面板查询、素材资源等升级功能                                                                                                                             | [GitHub](https://github.com/yoimiya-kokomi/miao-plugin)（主）→[GitCode](https://gitcode.com/huifeidemangguomao/miao-plugin)→[Gitee 镜像](https://gitee.com/huifeidemangguomao/miao-plugin)                                                                                                                                    | 2026-10-26 | 90c790b |
 | 🟡 已收录 | [AIR插件(AIR-plugin)](https://github.com/lengxi-root/air-plugin)                                                                                                                                                            | @冷曦 @TS沂沨                                                                              | 功能插件 | 主要适配官方机器人，提供伊蕾娜图片，智能体聊天，全局转ark等功能                                                                                                                              | [GitHub](https://github.com/lengxi-root/air-plugin)                                                                                                                                                                                                                                                                      | 2026-10-22     | 0fc5e19 |
 | 🟡 已收录 | [AI语音本地生成 (vits\_yunzai\_plugin)](https://gitee.com/sumght/vits_yunzai_plugin)                                                                                                                                            | @sumght-z                                                                              | 功能插件 | 基于vits本地生成原神/崩三语音 生成效果演示                                                                                                                                       | [Gitee](https://gitee.com/sumght/vits_yunzai_plugin)                                                                                                                                                                                                                                                                     | 2026-10-22     | 1921227 |
@@ -270,3 +270,39 @@
 | 🟡 已收录 | [鸣潮卡池多久未复刻查询](https://gitee.com/Tloml-Starry/Plugin-Example/raw/master/JavaScript/%E9%B8%A3%E6%BD%AE%E5%8D%A1%E6%B1%A0%E4%BF%A1%E6%81%AF%E6%9F%A5%E8%AF%A2V1.0.js)                                                        | @Tloml-Starry                                                                          | 单JS  | 查询五星限定角色距今多久未复刻等信息                                                                                                                                             | [Gitee](https://gitee.com/Tloml-Starry/Plugin-Example) [Gitee](https://gitee.com/Tloml-Starry/Plugin-Example/raw/master/JavaScript/%E9%B8%A3%E6%BD%AE%E5%8D%A1%E6%B1%A0%E4%BF%A1%E6%81%AF%E6%9F%A5%E8%AF%A2V1.0.js)                                                                                                      | 2026-10-22     | c446f2f |
 | 🟡 已收录 | [鸭鸭照插件](https://github.com/MuXia-0326/YunzaiBotJsPluginMuXia/raw/master/muxia_duck_img.js)                                                                                                                                | @MuXia                                                                                 | 单JS  | 主动进行 早上好鸭 中午好鸭 晚上好鸭 晚安鸭 问好                                                                                                                                     | [GitHub](https://github.com/MuXia-0326/YunzaiBotJsPluginMuXia) [GitHub](https://github.com/MuXia-0326/YunzaiBotJsPluginMuXia/raw/master/muxia_duck_img.js)                                                                                                                                                               | 2026-10-22     | d189b77 |
 | 🟡 已收录 | [黑神话B站wiki查询](https://gitee.com/wzwei1990/wukong/blob/master/wukong.js)                                                                                                                                                   | @wzwei1990                                                                             | 单JS  | 黑神话B站wiki查询，输入#影神图+要查询人物妖怪物品的名称，返回图片                                                                                                                           | [Gitee](https://gitee.com/wzwei1990/wukong) [Gitee](https://gitee.com/wzwei1990/wukong/blob/master/wukong.js)                                                                                                                                                                                                            | 2026-10-22     | 86c6855 |
+
+
+## 附录：收录审查方法
+
+本表所有条目均按下述方法审查后收录。方法公开，便于任何人复核。
+
+**一、上游对齐**
+
+以 `git ls-remote` 取各源仓库当前 HEAD，与本表「版本哈希」逐条比对：一致即源码未变动，沿用既有审查结论；不一致则对增量部分重新审查（GitHub 走 compare API 只取新增行，Gitee / GitCode 取浅克隆扫整棵代码树）。
+
+**二、静态红线扫描（全量逐行）**
+
+对每个插件的全部代码扫描下列特征，命中后再逐条回到源码人工复核：
+
+1. **代码执行**：`eval(`、`new Function(`、`child_process`、`exec(` / `execSync`、`spawn(` 等，并判断其是否有主人 / 权限门禁
+2. **混淆与解码执行**：`atob(`、`Buffer.from`、`fromCharCode`、十六进制与 base64 大段常量，及它们与执行函数的邻近组合
+3. **硬编码凭据**：API Key、token、secret、password、Authorization 等，并区分真实密钥与占位符 / 示例值
+4. **数据外传**：session / cookie / token 等关键词与外发请求的组合；枚举全部外联地址，识别裸 IP 与非常规域名后缀
+5. **依赖供应链**：解析全部 package.json，检查依赖包名仿冒、postinstall 等安装脚本、git / 远程来源依赖
+6. **账号与授权**：二维码登录、验证码、扫码授权相关代码；以及在白名单 / 管理员数组中写死 QQ 号授予权限的「隐藏主人」模式
+7. **后门特征**：对 user_id / QQ 做哈希后与写死的哈希值比对
+
+**三、人工复核**
+
+上述扫描会产生大量正则命中，其中绝大多数是误报——函数名、测试夹具、字体与图标资源、第三方官方公开签名盐、UI 占位符等。每一条命中都回到源码确认其上下文与真实用途；只有确认构成后门、木马、硬编码真实凭据、混淆藏匿或越权授予的，才作排除处理。
+
+**四、官方条目同等审查**
+
+本团队维护的仓库（🟢 官方）已取消免审特权，与其余条目适用同一套方法与红线，审查后同样记录检查日期与版本哈希。
+
+**五、本轮覆盖面**
+
+- 代码文件：12,379 个
+- package.json：209 份，去重依赖 310 个
+- 插件目录：99 个
+- 覆盖向量：代码执行、混淆解码、硬编码凭据、数据外传与外联枚举、依赖供应链、二维码与验证码授权、写死 QQ 授权、主人哈希后门
