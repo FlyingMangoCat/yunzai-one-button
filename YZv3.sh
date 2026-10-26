@@ -568,7 +568,7 @@ install_yunzai() {
         success "代码克隆完成"
     fi
 
-    # 4.6 全局安装 pnpm（兼容 Node.js 版本）
+    # 4.6 全局安装 pnpm（优先 Corepack：版本由本体 package.json 的 packageManager 字段固定）
     log "安装 pnpm..."
     # 国内网络优先使用 npmmirror 镜像源，避免官方源超时
     if npm config get registry 2>/dev/null | grep -q "registry.npmjs.org"; then
@@ -577,7 +577,9 @@ install_yunzai() {
     fi
     local node_ver=$(node -v | sed 's/v//' | cut -d. -f1)
     # Termux/Android 文件系统不支持新版 pnpm 的 lock_shared()，必须用 pnpm@8；
-    # 已装了新版 pnpm 的也要降级（不能只在未安装时固定）
+    # 已装了新版 pnpm 的也要降级（不能只在未安装时固定）。
+    # Termux 同时不走 Corepack：本体 package.json 固定的 pnpm@12 在 Termux 跑不了，
+    # 启用 Corepack 后进入项目目录会被强切到 12.x 导致安装失败。
     if [ "$IS_TERMUX" = "true" ] && command -v pnpm &>/dev/null; then
         local pnpm_major=$(pnpm --version 2>/dev/null | cut -d. -f1)
         if [ -n "$pnpm_major" ] && [ "$pnpm_major" -gt 8 ]; then
@@ -586,19 +588,29 @@ install_yunzai() {
         fi
     fi
     if ! command -v pnpm &>/dev/null; then
-        local pnpm_ver="pnpm@10"
-        [ "$node_ver" -ge 22 ] && pnpm_ver="pnpm"
-        if [ "$IS_TERMUX" = "true" ]; then
-            pnpm_ver="pnpm@8"
-            log "检测到 Termux 环境，使用 pnpm@8"
-        fi
         local ok=false
-        for i in 1 2 3; do
-            npm install -g "$pnpm_ver" && ok=true && break
-            log "pnpm 安装失败，重试 ($i/3)..."
-            sleep 2
-        done
-        $ok || error "pnpm 安装失败，请检查网络或 npm 源（npm 报错见上方输出）"
+        # 非 Termux 优先 Corepack，与本体的 packageManager: pnpm@12.3.4 对齐
+        if [ "$IS_TERMUX" != "true" ] && command -v corepack &>/dev/null; then
+            export COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
+            for i in 1 2 3; do
+                corepack enable && corepack prepare pnpm@12.3.4 --activate && ok=true && break
+                log "Corepack 启用失败，重试 ($i/3)..."
+                sleep 2
+            done
+            $ok && log "已通过 Corepack 启用 pnpm（进入项目目录后自动使用本体固定的 12.3.4）"
+        fi
+        if ! $ok; then
+            # Corepack 不可用时回退 npm 全局安装
+            local pnpm_ver="pnpm@10"
+            [ "$node_ver" -ge 22 ] && pnpm_ver="pnpm"
+            [ "$IS_TERMUX" = "true" ] && pnpm_ver="pnpm@8"
+            for i in 1 2 3; do
+                npm install -g "$pnpm_ver" && ok=true && break
+                log "pnpm 安装失败，重试 ($i/3)..."
+                sleep 2
+            done
+            $ok || error "pnpm 安装失败，请检查网络或 npm 源（npm 报错见上方输出）"
+        fi
     fi
     command -v pnpm &>/dev/null || error "pnpm 未安装成功，请检查 npm 全局 bin 目录"
 
