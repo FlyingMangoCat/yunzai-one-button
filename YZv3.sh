@@ -557,7 +557,7 @@ install_yunzai() {
         if echo "$repo_url" | grep -q "gitee.com"; then
             local rp=$(echo "$repo_url" | sed 's|https://gitee.com/||' | sed 's|\.git$||')
             if echo "$rp" | grep -q "huifeidemangguomao/MangoCat-Yunzai"; then
-                clone_urls+=("https://github.com/FlyingMangoCat/MangoCat-Yunzai.git" "https://gh-proxy.com/https://github.com/FlyingMangoCat/MangoCat-Yunzai.git" "https://gitcode.com/huifeidemangguomao/MangoCat-Yunzai.git")
+                clone_urls+=("https://github.com/FlyingMangoCat/MangoCat-Yunzai.git" "https://gh-proxy.com/https://github.com/FlyingMangoCat/MangoCat-Yunzai.git" "https://gitcode.com/bairimenggongchang/MangoCat-Yunzai.git")
             fi
             if echo "$rp" | grep -q "yoimiya-kokomi/Miao-Yunzai"; then
                 clone_urls+=("https://github.com/yoimiya-kokomi/Miao-Yunzai.git" "https://gh-proxy.com/https://github.com/yoimiya-kokomi/Miao-Yunzai.git" "https://gitcode.com/huifeidemangguomao/Miao-Yunzai.git")
