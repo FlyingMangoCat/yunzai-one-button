@@ -457,9 +457,24 @@ install_environment() {
                     fi
                 fi
                 # zip 下载解压安装（redis-windows 项目现以 zip 分发，无 MSI）
-                local redis_urls=(
-                    "https://github.com/redis-windows/redis-windows/releases/latest/download/Redis-8.10.2-Windows-x64-cygwin.zip"
-                )
+                # 动态取 latest release 的 Windows-x64-cygwin.zip 资产名（项目随版本改资产名,
+                # 写死版本号在旧资产被清理后 404）; API 直连失败退 gh-proxy 代理的 API 再解析,
+                # 下载地址同样给 直连/gh-proxy 两条
+                local redis_asset
+                redis_asset=$(curl -fsSL --connect-timeout 10 --max-time 20 \
+                    "https://api.github.com/repos/redis-windows/redis-windows/releases/latest" 2>/dev/null \
+                    | grep -oE '"browser_download_url":\s*"[^"]*Windows-x64-cygwin\.zip"' \
+                    | head -n 1 | grep -oE 'https[^"]+')
+                if [ -z "$redis_asset" ]; then
+                    redis_asset=$(curl -fsSL --connect-timeout 10 --max-time 30 \
+                        "https://gh-proxy.com/https://api.github.com/repos/redis-windows/redis-windows/releases/latest" 2>/dev/null \
+                        | grep -oE '"browser_download_url":\s*"[^"]*Windows-x64-cygwin\.zip"' \
+                        | head -n 1 | grep -oE 'https[^"]+')
+                fi
+                local redis_urls=()
+                [ -n "$redis_asset" ] && redis_urls+=("$redis_asset")
+                # gh-proxy 代理同款资产地址（资产名解析失败时放弃 zip 路, 交给下一轮重试）
+                [ -n "$redis_asset" ] && redis_urls+=("https://gh-proxy.com/$redis_asset")
                 local downloaded=""
                 for url in "${redis_urls[@]}"; do
                     curl -fsSL --connect-timeout 10 --max-time 180 -o /tmp/redis.zip "$url" 2>/dev/null && downloaded="/tmp/redis.zip" && break
