@@ -1158,6 +1158,9 @@ show_napcat_ws_guide() {
 }
 
 # ---------- 安装 NapCat ----------
+# 注意: 以下源全部指向 NapNeko/NapCat-Installer，该仓库已被作者删除
+# （NapCat 项目 2026-11 宣布 Ending），下载必失败，仅保留旧逻辑兜底；
+# 失败时的用户提示见 install_napcat 各分支
 NAPCAT_INSTALLER_URL="https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh"
 
 download_napcat_installer() {
@@ -1323,7 +1326,7 @@ install_napcat() {
                 log "napcat 容器已存在，跳过安装"
             fi
 
-            # 3. 容器内初始化 NapCat（内部源已替换为 jsDelivr，规避 nclatest 不可达）
+            # 3. 容器内初始化 NapCat（上游安装脚本仓库已删除, 仅已有旧安装可跳过, 见下方幂等检测）
             # 定位容器 root 的家目录（官方脚本在 /root 下运行）
             local container_root=""
             if [ -d "$napcat_rootfs_new/rootfs/root" ]; then
@@ -1331,23 +1334,36 @@ install_napcat() {
             elif [ -d "$napcat_rootfs_legacy/root" ]; then
                 container_root="$napcat_rootfs_legacy/root"
             fi
-            if [ -n "$container_root" ]; then
-                # 清理上次失败残留的官方脚本临时目录（残留会导致官方脚本拒绝执行）
-                rm -rf "$container_root/NapCat" 2>/dev/null || true
-                # QQ 官方下载链接已失效(404)，预下载可用安装包放进容器，官方脚本检测到本地包会跳过下载
-                prepare_qq_package "$container_root" deb || true
-            fi
-            log "初始化容器内 NapCat（首次较慢，请耐心等待）..."
-            proot-distro sh napcat -- bash -c "export DEBIAN_FRONTEND=noninteractive && \
-                apt-get update -y && \
-                apt-get install -y sudo curl libgcrypt20 xvfb xauth && \
-                curl -fsSL -o napcat.sh https://cdn.jsdelivr.net/gh/NapNeko/NapCat-Installer@main/script/install.sh && \
-                sudo bash napcat.sh --docker n --cli n && \
-                apt-get autoremove -y && apt-get clean && rm -rf /tmp/* /var/lib/apt/lists" 2>&1 | tee -a "$LOG_FILE"
-            local ret=${PIPESTATUS[0]}
-            if [ $ret -ne 0 ]; then
-                warn "容器内初始化退出码 $ret，请查看上方输出（多为网络波动，可重新运行本项重试）"
-                return 1
+            # 幂等检测: 容器内已有可用 NapCat 则跳过在线 init。上游 NapCat-Installer
+            # 仓库已被作者删除（NapCat 项目 2026-11 宣布 Ending），init 拉取必 404，
+            # 不能让这次失败挡住已装好的旧安装。注意 /root/Napcat 是安装目录，
+            # 与下面清理的官方脚本临时目录 /root/NapCat 大小写不同、互不影响
+            if [ -n "$container_root" ] && [ -x "$container_root/Napcat/opt/QQ/qq" ]; then
+                log "容器内已有 NapCat（$container_root/Napcat），跳过在线安装"
+            else
+                if [ -n "$container_root" ]; then
+                    # 清理上次失败残留的官方脚本临时目录（残留会导致官方脚本拒绝执行）
+                    rm -rf "$container_root/NapCat" 2>/dev/null || true
+                    # QQ 官方下载链接已失效(404)，预下载可用安装包放进容器，官方脚本检测到本地包会跳过下载
+                    prepare_qq_package "$container_root" deb || true
+                fi
+                log "初始化容器内 NapCat（首次较慢，请耐心等待）..."
+                proot-distro sh napcat -- bash -c "export DEBIAN_FRONTEND=noninteractive && \
+                    apt-get update -y && \
+                    apt-get install -y sudo curl libgcrypt20 xvfb xauth && \
+                    curl -fsSL -o napcat.sh https://cdn.jsdelivr.net/gh/NapNeko/NapCat-Installer@main/script/install.sh && \
+                    sudo bash napcat.sh --docker n --cli n && \
+                    apt-get autoremove -y && apt-get clean && rm -rf /tmp/* /var/lib/apt/lists" 2>&1 | tee -a "$LOG_FILE"
+                local ret=${PIPESTATUS[0]}
+                if [ $ret -ne 0 ]; then
+                    if [ -x "$container_root/Napcat/opt/QQ/qq" ]; then
+                        warn "在线初始化失败（退出码 $ret），但容器内存在旧 NapCat 安装，可用菜单 9 启动"
+                    else
+                        warn "容器内初始化失败（退出码 $ret）：上游 NapCat-Installer 仓库已被作者删除（NapCat 项目 2026-11 宣布 Ending），安装脚本拉取 404，非网络波动，重试本项无效"
+                        warn "新装协议端请考虑 QQ 官方 Bot 或仍在维护的方案；本机曾有旧安装时可用菜单 9 启动"
+                        return 1
+                    fi
+                fi
             fi
             success "NapCat 安装完成"
             if [ -d "$napcat_rootfs_new" ]; then
@@ -1388,7 +1404,7 @@ install_napcat() {
                     warn "NapCat 安装脚本退出码 $ret，请查看上方输出"
                 fi
             else
-                error "NapCat 安装脚本下载失败，请检查网络"
+                error "NapCat 安装脚本下载失败：上游 NapCat-Installer 仓库已被作者删除（NapCat 项目 2026-11 宣布 Ending），全部下载源（nclatest/jsDelivr/GitHub raw）均已 404，非网络问题"
             fi
             ;;
         "macOS")
